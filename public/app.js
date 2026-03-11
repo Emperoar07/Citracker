@@ -75,6 +75,7 @@ function renderKpis(summary) {
     ["Bridge Outflow (USDT)", summary.bridge.outflow_usd],
     ["Bridge Value (USDT)", summary.bridge.volume_usd],
     ["Total Volume (USDT)", summary.total_activity_volume_usd],
+    ["DEX Swap Count", summary.dex.swap_count],
     ["Citrea Tx Count", summary.citrea_total_tx_count],
   ];
 
