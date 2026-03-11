@@ -66,27 +66,35 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
     const base = coerceSummaryPayload(await getWalletSummary(wallet, from, to));
 
     const explorer = await getExplorerEnhancements(wallet, from, to);
-    const needsCitreaFallback =
-      Number(base.citrea_total_tx_count || 0) === 0 ||
-      Number(base.dex.swap_count || 0) === 0 ||
-      Number(base.gas.l2_native || 0) === 0;
-    const citreaFallback = needsCitreaFallback
-      ? await getCitreaExplorerActivity(wallet, from, to, { limit: 20 })
-      : null;
+    const citreaFallback = await getCitreaExplorerActivity(wallet, from, to, { limit: 20 });
 
     if (explorer.enabled && typeof explorer.citrea_tx_count === "number") {
-      base.citrea_total_tx_count = explorer.citrea_tx_count;
+      base.citrea_total_tx_count = Math.max(
+        Number(base.citrea_total_tx_count || 0),
+        explorer.citrea_tx_count
+      );
     }
     if (citreaFallback?.enabled) {
-      if (!Number(base.citrea_total_tx_count || 0)) {
-        base.citrea_total_tx_count = citreaFallback.tx_count;
+      base.citrea_total_tx_count = Math.max(
+        Number(base.citrea_total_tx_count || 0),
+        Number(citreaFallback.tx_count || 0)
+      );
+      base.dex.swap_count = Math.max(
+        Number(base.dex.swap_count || 0),
+        Number(citreaFallback.swap_count || 0)
+      );
+      if (Number(citreaFallback.swap_volume_usd_total || 0) > Number(base.dex.swap_volume_usd || 0)) {
+        base.dex.swap_volume_usd = String(citreaFallback.swap_volume_usd_total || "0");
       }
-      if (!Number(base.dex.swap_count || 0)) {
-        base.dex.swap_count = citreaFallback.swap_count;
-      }
-      if (!Number(base.gas.l2_native || 0)) {
+      if (Number(citreaFallback.gas_total_native || 0) > Number(base.gas.l2_native || 0)) {
         base.gas.l2_native = String(citreaFallback.gas_total_native || "0");
       }
+      if (Number(citreaFallback.gas_total_usd || 0) > Number(base.gas.total_usd || 0)) {
+        base.gas.total_usd = String(citreaFallback.gas_total_usd || "0");
+      }
+      base.total_activity_volume_usd = String(
+        Number(base.bridge.volume_usd || 0) + Number(base.dex.swap_volume_usd || 0)
+      );
     }
 
     base.explorer = {

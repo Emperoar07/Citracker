@@ -1,6 +1,7 @@
 import { env } from "../config.js";
 import { ethers } from "ethers";
 import { getPool } from "../db.js";
+import { resolveNativeUsdPrice, resolveTokenUsdPrice } from "./priceService.js";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -250,6 +251,8 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       tx_count: 0,
       swap_count: 0,
       gas_total_native: "0",
+      gas_total_usd: "0",
+      swap_volume_usd_total: "0",
       gas_items: [],
       swap_items: []
     };
@@ -267,12 +270,18 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   });
 
   let gasTotalWei = 0n;
+  let gasTotalUsd = 0;
+  let swapVolumeUsdTotal = 0;
   const gasItems = [];
   const swapItems = [];
 
   for (const tx of transactions) {
     const feeWei = BigInt(tx?.fee?.value || "0");
     gasTotalWei += feeWei;
+    const gasUsdPrice = await resolveNativeUsdPrice(env.citreaChainId, tx.timestamp).catch(() => null);
+    if (gasUsdPrice) {
+      gasTotalUsd += Number(ethers.formatEther(feeWei)) * gasUsdPrice.price;
+    }
 
     if (gasItems.length < limit) {
       gasItems.push({
@@ -281,13 +290,13 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         gas_used: tx.gas_used || "0",
         effective_gas_price_wei: tx.gas_price || "0",
         fee_native: ethers.formatEther(feeWei),
-        fee_usd: null,
+        fee_usd: gasUsdPrice ? String(Number(ethers.formatEther(feeWei)) * gasUsdPrice.price) : null,
         tx_category: isSwapLikeTransaction(tx, trackedDexDestinations) ? "dex" : "other",
         block_timestamp: tx.timestamp
       });
     }
 
-    if (isSwapLikeTransaction(tx, trackedDexDestinations) && swapItems.length < limit) {
+    if (isSwapLikeTransaction(tx, trackedDexDestinations)) {
       const tokenInAddress = findDecodedParam(tx, "tokenIn");
       const tokenOutAddress = findDecodedParam(tx, "tokenOut");
       const amountInRaw = findDecodedParam(tx, "amountIn") || "0";
@@ -298,17 +307,35 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         getTokenMetadata(env.citreascanApiUrl, tokenInAddress),
         getTokenMetadata(env.citreascanApiUrl, tokenOutAddress)
       ]);
+      const [tokenInPrice, tokenOutPrice] = await Promise.all([
+        resolveTokenUsdPrice(tokenInMeta.symbol, tx.timestamp).catch(() => null),
+        resolveTokenUsdPrice(tokenOutMeta.symbol, tx.timestamp).catch(() => null)
+      ]);
+      const tokenInAmount = ethers.formatUnits(amountInRaw, tokenInMeta.decimals);
+      const tokenOutAmount = ethers.formatUnits(amountOutRaw, tokenOutMeta.decimals);
+      const swapVolumeUsd =
+        tokenInPrice
+          ? Number(tokenInAmount) * tokenInPrice.price
+          : tokenOutPrice
+            ? Number(tokenOutAmount) * tokenOutPrice.price
+            : null;
 
-      swapItems.push({
-        dex: tx?.to?.name || tx?.method || "swap",
-        token_in: tokenInMeta.symbol,
-        token_out: tokenOutMeta.symbol,
-        token_in_amount: ethers.formatUnits(amountInRaw, tokenInMeta.decimals),
-        token_out_amount: ethers.formatUnits(amountOutRaw, tokenOutMeta.decimals),
-        swap_volume_usd: null,
-        tx_hash: tx.hash,
-        block_timestamp: tx.timestamp
-      });
+      if (swapVolumeUsd !== null) {
+        swapVolumeUsdTotal += swapVolumeUsd;
+      }
+
+      if (swapItems.length < limit) {
+        swapItems.push({
+          dex: tx?.to?.name || tx?.method || "swap",
+          token_in: tokenInMeta.symbol,
+          token_out: tokenOutMeta.symbol,
+          token_in_amount: tokenInAmount,
+          token_out_amount: tokenOutAmount,
+          swap_volume_usd: swapVolumeUsd === null ? null : String(swapVolumeUsd),
+          tx_hash: tx.hash,
+          block_timestamp: tx.timestamp
+        });
+      }
     }
   }
 
@@ -317,6 +344,8 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
     tx_count: transactions.length,
     swap_count: transactions.filter((tx) => isSwapLikeTransaction(tx, trackedDexDestinations)).length,
     gas_total_native: ethers.formatEther(gasTotalWei),
+    gas_total_usd: String(gasTotalUsd),
+    swap_volume_usd_total: String(swapVolumeUsdTotal),
     gas_items: gasItems,
     swap_items: swapItems
   };
