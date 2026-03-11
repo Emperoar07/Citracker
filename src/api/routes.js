@@ -9,7 +9,7 @@ import {
 } from "../services/metricsService.js";
 import { getNetworkSummary } from "../services/networkService.js";
 import { coerceSummaryPayload } from "../services/summarySerializer.js";
-import { getExplorerEnhancements } from "../services/explorerService.js";
+import { getCitreaExplorerActivity, getExplorerEnhancements } from "../services/explorerService.js";
 import { normalizeWallet, validateDateRange } from "../utils/validators.js";
 
 const router = express.Router();
@@ -66,12 +66,33 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
     const base = coerceSummaryPayload(await getWalletSummary(wallet, from, to));
 
     const explorer = await getExplorerEnhancements(wallet, from, to);
+    const needsCitreaFallback =
+      Number(base.citrea_total_tx_count || 0) === 0 ||
+      Number(base.dex.swap_count || 0) === 0 ||
+      Number(base.gas.l2_native || 0) === 0;
+    const citreaFallback = needsCitreaFallback
+      ? await getCitreaExplorerActivity(wallet, from, to, { limit: 20 })
+      : null;
 
     if (explorer.enabled && typeof explorer.citrea_tx_count === "number") {
       base.citrea_total_tx_count = explorer.citrea_tx_count;
     }
+    if (citreaFallback?.enabled) {
+      if (!Number(base.citrea_total_tx_count || 0)) {
+        base.citrea_total_tx_count = citreaFallback.tx_count;
+      }
+      if (!Number(base.dex.swap_count || 0)) {
+        base.dex.swap_count = citreaFallback.swap_count;
+      }
+      if (!Number(base.gas.l2_native || 0)) {
+        base.gas.l2_native = String(citreaFallback.gas_total_native || "0");
+      }
+    }
 
-    base.explorer = explorer;
+    base.explorer = {
+      ...explorer,
+      citrea_activity_fallback: Boolean(citreaFallback?.enabled)
+    };
     base.is_all_time = isAllTime;
     return res.json(base);
   } catch (err) {
@@ -124,6 +145,18 @@ router.get("/wallet/:wallet/swaps", async (req, res, next) => {
     const limit = Math.min(Number(req.query.limit || 50), 200);
 
     const payload = await getWalletSwaps(wallet, from, to, dex, token, limit);
+    if (payload.total_count === 0) {
+      const fallback = await getCitreaExplorerActivity(wallet, from, to, { limit });
+      if (fallback.enabled && fallback.swap_items.length > 0) {
+        return res.json({
+          wallet,
+          items: fallback.swap_items,
+          next_cursor: null,
+          total_count: fallback.swap_count,
+          source: "citreascan_fallback"
+        });
+      }
+    }
     return res.json(payload);
   } catch (err) {
     return next(err);
@@ -146,6 +179,26 @@ router.get("/wallet/:wallet/gas", async (req, res, next) => {
     }
 
     const payload = await getWalletGas(wallet, from, to, chain, category, limit);
+    if (
+      payload.total_count === 0 &&
+      (chain === "all" || chain === "l2") &&
+      (category === "all" || category === "dex" || category === "other")
+    ) {
+      const fallback = await getCitreaExplorerActivity(wallet, from, to, { limit });
+      if (fallback.enabled && fallback.gas_items.length > 0) {
+        const filteredItems = fallback.gas_items.filter((item) => {
+          if (category === "all") return true;
+          return item.tx_category === category;
+        });
+        return res.json({
+          wallet,
+          items: filteredItems,
+          next_cursor: null,
+          total_count: fallback.tx_count,
+          source: "citreascan_fallback"
+        });
+      }
+    }
     return res.json(payload);
   } catch (err) {
     return next(err);

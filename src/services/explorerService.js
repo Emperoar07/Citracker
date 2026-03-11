@@ -1,4 +1,5 @@
 import { env } from "../config.js";
+import { ethers } from "ethers";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -17,6 +18,97 @@ function buildUrl(baseUrl, apiKey, params) {
   });
   if (apiKey) u.searchParams.set("apikey", apiKey);
   return u.toString();
+}
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const tokenMetadataCache = new Map();
+
+function shortAddress(address) {
+  if (!address || typeof address !== "string") return "-";
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function normalizeAddress(value) {
+  if (!value) return null;
+  if (typeof value === "string") return value.toLowerCase();
+  if (typeof value === "object" && typeof value.hash === "string") return value.hash.toLowerCase();
+  return null;
+}
+
+function findDecodedParam(tx, ...names) {
+  const params = Array.isArray(tx?.decoded_input?.parameters) ? tx.decoded_input.parameters : [];
+  for (const name of names) {
+    const match = params.find((item) => item?.name === name);
+    if (match) return match.value;
+  }
+  return null;
+}
+
+async function fetchBlockscoutTransactions({ baseUrl, wallet, startTimestamp, endTimestamp, maxItems }) {
+  if (!baseUrl) return [];
+
+  const start = Math.floor(startTimestamp / 1000);
+  const end = Math.floor(endTimestamp / 1000);
+  let nextPageParams = null;
+  let items = [];
+
+  do {
+    const url = new URL(`${baseUrl.replace(/\/$/, "")}/addresses/${wallet}/transactions`);
+    if (nextPageParams && typeof nextPageParams === "object") {
+      Object.entries(nextPageParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+          url.searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    const data = await fetchJson(url.toString());
+    const pageItems = Array.isArray(data?.items) ? data.items : [];
+
+    for (const tx of pageItems) {
+      const ts = Math.floor(new Date(tx.timestamp).getTime() / 1000);
+      if (Number.isFinite(ts) && ts >= start && ts <= end) {
+        items.push(tx);
+        if (maxItems && items.length >= maxItems) {
+          return items;
+        }
+      }
+    }
+
+    nextPageParams = data?.next_page_params || null;
+  } while (nextPageParams);
+
+  return items;
+}
+
+async function getTokenMetadata(baseUrl, address) {
+  const normalized = normalizeAddress(address);
+  if (!normalized || normalized === ZERO_ADDRESS) {
+    return { symbol: "cBTC", decimals: 18 };
+  }
+
+  if (tokenMetadataCache.has(normalized)) {
+    return tokenMetadataCache.get(normalized);
+  }
+
+  try {
+    const data = await fetchJson(`${baseUrl.replace(/\/$/, "")}/tokens/${normalized}`);
+    const meta = {
+      symbol: data?.symbol || shortAddress(normalized),
+      decimals: Number(data?.decimals || 18)
+    };
+    tokenMetadataCache.set(normalized, meta);
+    return meta;
+  } catch {
+    const fallback = { symbol: shortAddress(normalized), decimals: 18 };
+    tokenMetadataCache.set(normalized, fallback);
+    return fallback;
+  }
+}
+
+function isSwapLikeTransaction(tx) {
+  const method = String(tx?.method || tx?.decoded_input?.method_call || "").toLowerCase();
+  return method.includes("swap");
 }
 
 async function fetchEtherscanLikeTxCount({ baseUrl, apiKey, wallet, startTimestamp, endTimestamp }) {
@@ -53,39 +145,15 @@ async function fetchEtherscanLikeTxCount({ baseUrl, apiKey, wallet, startTimesta
 async function fetchBlockscoutV2TxCount({ baseUrl, wallet, startTimestamp, endTimestamp }) {
   if (!baseUrl) return null;
 
-  const start = Math.floor(startTimestamp / 1000);
-  const end = Math.floor(endTimestamp / 1000);
-  let nextPageParams = null;
-  let count = 0;
-
-  do {
-    const url = new URL(`${baseUrl.replace(/\/$/, "")}/addresses/${wallet}/transactions`);
-    if (nextPageParams && typeof nextPageParams === "object") {
-      Object.entries(nextPageParams).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== "") {
-          url.searchParams.set(key, String(value));
-        }
-      });
-    }
-
-    const data = await fetchJson(url.toString());
-    const items = Array.isArray(data?.items) ? data.items : [];
-
-    for (const tx of items) {
-      const ts = Math.floor(new Date(tx.timestamp).getTime() / 1000);
-      if (Number.isFinite(ts) && ts >= start && ts <= end) {
-        count += 1;
-      }
-    }
-
-    nextPageParams = data?.next_page_params || null;
-  } while (nextPageParams);
-
-  return count;
+  const items = await fetchBlockscoutTransactions({ baseUrl, wallet, startTimestamp, endTimestamp });
+  return items.length;
 }
 
 export async function getExplorerEnhancements(wallet, fromIso, toIso) {
-  if (!env.enableExplorerEnrichment) {
+  const citreaEnabled = Boolean(env.citreascanApiUrl);
+  const ethEnabled = env.enableExplorerEnrichment && Boolean(env.etherscanApiUrl);
+
+  if (!citreaEnabled && !ethEnabled) {
     return { enabled: false };
   }
 
@@ -99,16 +167,18 @@ export async function getExplorerEnhancements(wallet, fromIso, toIso) {
     errors: []
   };
 
-  try {
-    out.eth_tx_count = await fetchEtherscanLikeTxCount({
-      baseUrl: env.etherscanApiUrl,
-      apiKey: env.etherscanApiKey,
-      wallet,
-      startTimestamp,
-      endTimestamp
-    });
-  } catch (err) {
-    out.errors.push(`etherscan:${err.message}`);
+  if (ethEnabled) {
+    try {
+      out.eth_tx_count = await fetchEtherscanLikeTxCount({
+        baseUrl: env.etherscanApiUrl,
+        apiKey: env.etherscanApiKey,
+        wallet,
+        startTimestamp,
+        endTimestamp
+      });
+    } catch (err) {
+      out.errors.push(`etherscan:${err.message}`);
+    }
   }
 
   try {
@@ -133,4 +203,82 @@ export async function getExplorerEnhancements(wallet, fromIso, toIso) {
   }
 
   return out;
+}
+
+export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options = {}) {
+  if (!env.citreascanApiUrl) {
+    return {
+      enabled: false,
+      tx_count: 0,
+      swap_count: 0,
+      gas_total_native: "0",
+      gas_items: [],
+      swap_items: []
+    };
+  }
+
+  const startTimestamp = new Date(fromIso).getTime();
+  const endTimestamp = new Date(toIso).getTime();
+  const limit = Number(options.limit || 20);
+  const transactions = await fetchBlockscoutTransactions({
+    baseUrl: env.citreascanApiUrl,
+    wallet,
+    startTimestamp,
+    endTimestamp
+  });
+
+  let gasTotalWei = 0n;
+  const gasItems = [];
+  const swapItems = [];
+
+  for (const tx of transactions) {
+    const feeWei = BigInt(tx?.fee?.value || "0");
+    gasTotalWei += feeWei;
+
+    if (gasItems.length < limit) {
+      gasItems.push({
+        chain_id: env.citreaChainId,
+        tx_hash: tx.hash,
+        gas_used: tx.gas_used || "0",
+        effective_gas_price_wei: tx.gas_price || "0",
+        fee_native: ethers.formatEther(feeWei),
+        fee_usd: null,
+        tx_category: isSwapLikeTransaction(tx) ? "dex" : "other",
+        block_timestamp: tx.timestamp
+      });
+    }
+
+    if (isSwapLikeTransaction(tx) && swapItems.length < limit) {
+      const tokenInAddress = findDecodedParam(tx, "tokenIn");
+      const tokenOutAddress = findDecodedParam(tx, "tokenOut");
+      const amountInRaw = findDecodedParam(tx, "amountIn") || "0";
+      const amountOutRaw =
+        findDecodedParam(tx, "amountOut", "amountOutMinimum", "minAmountOut", "amountOutMin") || "0";
+
+      const [tokenInMeta, tokenOutMeta] = await Promise.all([
+        getTokenMetadata(env.citreascanApiUrl, tokenInAddress),
+        getTokenMetadata(env.citreascanApiUrl, tokenOutAddress)
+      ]);
+
+      swapItems.push({
+        dex: tx?.to?.name || tx?.method || "swap",
+        token_in: tokenInMeta.symbol,
+        token_out: tokenOutMeta.symbol,
+        token_in_amount: ethers.formatUnits(amountInRaw, tokenInMeta.decimals),
+        token_out_amount: ethers.formatUnits(amountOutRaw, tokenOutMeta.decimals),
+        swap_volume_usd: null,
+        tx_hash: tx.hash,
+        block_timestamp: tx.timestamp
+      });
+    }
+  }
+
+  return {
+    enabled: true,
+    tx_count: transactions.length,
+    swap_count: transactions.filter(isSwapLikeTransaction).length,
+    gas_total_native: ethers.formatEther(gasTotalWei),
+    gas_items: gasItems,
+    swap_items: swapItems
+  };
 }
