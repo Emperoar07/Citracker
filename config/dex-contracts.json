@@ -4,41 +4,55 @@
     "dexName": "juiceswap",
     "dexVariant": "uniswap_v3",
     "contractRole": "factory",
-    "contractAddress": "0xd809b1285aDd8eeaF1B1566Bf31B2B4C4Bba8e82"
+    "contractAddress": "0xd809b1285aDd8eeaF1B1566Bf31B2B4C4Bba8e82",
+    "startBlock": 2651539
   },
   {
     "chainId": 4114,
     "dexName": "juiceswap",
     "dexVariant": "uniswap_v3",
     "contractRole": "router",
-    "contractAddress": "0x565eD3D57fe40f78A46f348C220121AE093c3cF8"
+    "contractAddress": "0x565eD3D57fe40f78A46f348C220121AE093c3cF8",
+    "startBlock": 2651620
+  },
+  {
+    "chainId": 4114,
+    "dexName": "juiceswap",
+    "dexVariant": "uniswap_v3",
+    "contractRole": "router",
+    "contractAddress": "0xAFcfD58Fe17BEb0c9D15C51D19519682dFcdaab9",
+    "startBlock": 2654776
   },
   {
     "chainId": 4114,
     "dexName": "juiceswap-v2",
     "dexVariant": "uniswap_v2",
     "contractRole": "factory",
-    "contractAddress": "0x400B27260bc8BbBF740e25B29a24EDf175d9fE56"
+    "contractAddress": "0x400B27260bc8BbBF740e25B29a24EDf175d9fE56",
+    "startBlock": 2651525
   },
   {
     "chainId": 4114,
     "dexName": "juiceswap-v2",
     "dexVariant": "uniswap_v2",
     "contractRole": "router",
-    "contractAddress": "0x6BDea31C89E0A202cE84b5752BB2e827B39984ae"
+    "contractAddress": "0x6BDea31C89E0A202cE84b5752BB2e827B39984ae",
+    "startBlock": 2651532
   },
   {
     "chainId": 4114,
     "dexName": "satsuma",
     "dexVariant": "algebra_v3",
     "contractRole": "factory",
-    "contractAddress": "0x10253594A832f967994b44f33411940533302ACb"
+    "contractAddress": "0x10253594A832f967994b44f33411940533302ACb",
+    "startBlock": 2236600
   },
   {
     "chainId": 4114,
     "dexName": "fibrous",
     "dexVariant": "aggregator_router",
     "contractRole": "router",
-    "contractAddress": "0x1A8D0D08c7d1648Dfe86b445D9DFe3d5bB4814C1"
+    "contractAddress": "0x274602a953847d807231d2370072F5f4E4594B44",
+    "startBlock": 2464071
   }
 ]

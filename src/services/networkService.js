@@ -87,12 +87,21 @@ async function getIndexedNetworkStats() {
   `;
 
   const dexSql = `
+    WITH normalized_swaps AS (
+      SELECT DISTINCT ON (ds.chain_id, ds.tx_hash)
+        ds.chain_id,
+        ds.tx_hash,
+        ds.swap_volume_usd,
+        ds.token_in_usd
+      FROM dex_swaps ds
+      WHERE ds.status = 'confirmed'
+      ORDER BY ds.chain_id, ds.tx_hash, COALESCE(ds.log_index, 2147483647), ds.block_timestamp DESC
+    )
     SELECT
       COUNT(*) AS total_swap_count,
       COALESCE(SUM(swap_volume_usd),0) AS total_swap_volume_usd,
       COALESCE(SUM(COALESCE(token_in_usd, swap_volume_usd)),0) AS overall_token_spent_usd
-    FROM dex_swaps
-    WHERE status = 'confirmed';
+    FROM normalized_swaps;
   `;
 
   const gasSql = `
@@ -113,13 +122,24 @@ async function getIndexedNetworkStats() {
   `;
 
   const tokenSpendSql = `
+    WITH normalized_swaps AS (
+      SELECT DISTINCT ON (ds.chain_id, ds.tx_hash)
+        ds.chain_id,
+        ds.tx_hash,
+        ds.token_in_id,
+        ds.token_in_amount,
+        ds.token_in_usd,
+        ds.swap_volume_usd
+      FROM dex_swaps ds
+      WHERE ds.status = 'confirmed'
+      ORDER BY ds.chain_id, ds.tx_hash, COALESCE(ds.log_index, 2147483647), ds.block_timestamp DESC
+    )
     SELECT
       COALESCE(t.symbol, 'UNKNOWN') AS token,
-      COALESCE(SUM(ds.token_in_amount),0) AS amount_spent,
-      COALESCE(SUM(COALESCE(ds.token_in_usd, ds.swap_volume_usd)),0) AS amount_spent_usd
-    FROM dex_swaps ds
-    LEFT JOIN tokens t ON t.id = ds.token_in_id
-    WHERE ds.status = 'confirmed'
+      COALESCE(SUM(ns.token_in_amount),0) AS amount_spent,
+      COALESCE(SUM(COALESCE(ns.token_in_usd, ns.swap_volume_usd)),0) AS amount_spent_usd
+    FROM normalized_swaps ns
+    LEFT JOIN tokens t ON t.id = ns.token_in_id
     GROUP BY 1
     ORDER BY amount_spent_usd DESC, amount_spent DESC
     LIMIT 12;

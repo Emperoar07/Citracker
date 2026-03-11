@@ -16,6 +16,23 @@ export function chunkRange(fromBlock, toBlock, chunkSize) {
   return ranges;
 }
 
+export function chunkRangeLimited(fromBlock, toBlock, chunkSize, maxRanges) {
+  if (fromBlock > toBlock) return [];
+
+  const ranges = [];
+  let cursor = fromBlock;
+  let remaining = Number.isFinite(maxRanges) ? Math.max(Number(maxRanges), 0) : Infinity;
+
+  while (cursor <= toBlock && remaining > 0) {
+    const end = Math.min(cursor + chunkSize - 1, toBlock);
+    ranges.push([cursor, end]);
+    cursor = end + 1;
+    remaining -= 1;
+  }
+
+  return ranges;
+}
+
 export async function getOrCreateCursor(streamKey, chainId, startBlock) {
   const pool = getPool();
   const existing = await pool.query(

@@ -230,13 +230,22 @@ GROUP BY 1, 2;
 CREATE INDEX IF NOT EXISTS idx_wallet_gas_daily_wallet_day ON wallet_gas_daily (wallet_address, day DESC);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS wallet_dex_daily AS
+WITH normalized_swaps AS (
+  SELECT DISTINCT ON (ds.wallet_address, ds.tx_hash)
+    ds.wallet_address,
+    ds.tx_hash,
+    ds.block_timestamp,
+    ds.swap_volume_usd
+  FROM dex_swaps ds
+  WHERE ds.status = 'confirmed'
+  ORDER BY ds.wallet_address, ds.tx_hash, COALESCE(ds.log_index, -1), ds.block_timestamp DESC
+)
 SELECT
-  date_trunc('day', ds.block_timestamp) AS day,
-  ds.wallet_address,
+  date_trunc('day', ns.block_timestamp) AS day,
+  ns.wallet_address,
   COUNT(*) AS swap_count,
-  SUM(COALESCE(ds.swap_volume_usd, 0)) AS dex_volume_usd
-FROM dex_swaps ds
-WHERE ds.status = 'confirmed'
+  SUM(COALESCE(ns.swap_volume_usd, 0)) AS dex_volume_usd
+FROM normalized_swaps ns
 GROUP BY 1, 2;
 
 CREATE INDEX IF NOT EXISTS idx_wallet_dex_daily_wallet_day ON wallet_dex_daily (wallet_address, day DESC);

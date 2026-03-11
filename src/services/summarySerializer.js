@@ -5,6 +5,7 @@ export function coerceSummaryPayload(dbSummary) {
     wallet: dbSummary.wallet,
     range: dbSummary.range,
     bridge: {
+      tx_count: Number(dbSummary.bridge_tx_count || 0),
       inflow_usd: toDecimalString(dbSummary.bridge_inflow_usd),
       outflow_usd: toDecimalString(dbSummary.bridge_outflow_usd),
       volume_usd: toDecimalString(dbSummary.bridge_volume_usd),
@@ -15,6 +16,7 @@ export function coerceSummaryPayload(dbSummary) {
       swap_count: Number(dbSummary.dex_swap_count || 0)
     },
     gas: {
+      tx_count: Number(dbSummary.gas_tx_count || 0),
       l1_native: toDecimalString(dbSummary.gas_l1_native),
       l2_native: toDecimalString(dbSummary.gas_l2_native),
       total_usd: toDecimalString(dbSummary.gas_total_usd)

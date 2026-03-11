@@ -1,5 +1,6 @@
 import { env } from "../config.js";
 import { ethers } from "ethers";
+import { getPool } from "../db.js";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -22,6 +23,13 @@ function buildUrl(baseUrl, apiKey, params) {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const tokenMetadataCache = new Map();
+const STATIC_DEX_DESTINATIONS = new Set([
+  "0x565ed3d57fe40f78a46f348c220121ae093c3cf8",
+  "0x6bdea31c89e0a202ce84b5752bb2e827b39984ae",
+  "0xafcfd58fe17beb0c9d15c51d19519682dfcdaab9",
+  "0x274602a953847d807231d2370072f5f4e4594b44"
+]);
+let trackedDexCache = { value: null, loadedAt: 0 };
 
 function shortAddress(address) {
   if (!address || typeof address !== "string") return "-";
@@ -106,9 +114,39 @@ async function getTokenMetadata(baseUrl, address) {
   }
 }
 
-function isSwapLikeTransaction(tx) {
+async function getTrackedDexDestinations() {
+  const now = Date.now();
+  if (trackedDexCache.value && now - trackedDexCache.loadedAt < 60_000) {
+    return trackedDexCache.value;
+  }
+
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT contract_address
+     FROM tracked_dex_contracts
+     WHERE chain_id = $1
+       AND is_active = TRUE
+       AND contract_role IN ('router', 'pair', 'pool')`,
+    [env.citreaChainId]
+  );
+
+  const tracked = new Set(STATIC_DEX_DESTINATIONS);
+  for (const row of result.rows) {
+    tracked.add(normalizeAddress(row.contract_address));
+  }
+
+  trackedDexCache = { value: tracked, loadedAt: now };
+  return tracked;
+}
+
+function isSwapLikeTransaction(tx, trackedDestinations = STATIC_DEX_DESTINATIONS) {
   const method = String(tx?.method || tx?.decoded_input?.method_call || "").toLowerCase();
-  return method.includes("swap");
+  const destination =
+    normalizeAddress(tx?.to?.hash) ||
+    normalizeAddress(tx?.to) ||
+    normalizeAddress(tx?.created_contract?.hash);
+
+  return method.includes("swap") && Boolean(destination && trackedDestinations.has(destination));
 }
 
 async function fetchEtherscanLikeTxCount({ baseUrl, apiKey, wallet, startTimestamp, endTimestamp }) {
@@ -220,6 +258,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   const startTimestamp = new Date(fromIso).getTime();
   const endTimestamp = new Date(toIso).getTime();
   const limit = Number(options.limit || 20);
+  const trackedDexDestinations = await getTrackedDexDestinations();
   const transactions = await fetchBlockscoutTransactions({
     baseUrl: env.citreascanApiUrl,
     wallet,
@@ -243,12 +282,12 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         effective_gas_price_wei: tx.gas_price || "0",
         fee_native: ethers.formatEther(feeWei),
         fee_usd: null,
-        tx_category: isSwapLikeTransaction(tx) ? "dex" : "other",
+        tx_category: isSwapLikeTransaction(tx, trackedDexDestinations) ? "dex" : "other",
         block_timestamp: tx.timestamp
       });
     }
 
-    if (isSwapLikeTransaction(tx) && swapItems.length < limit) {
+    if (isSwapLikeTransaction(tx, trackedDexDestinations) && swapItems.length < limit) {
       const tokenInAddress = findDecodedParam(tx, "tokenIn");
       const tokenOutAddress = findDecodedParam(tx, "tokenOut");
       const amountInRaw = findDecodedParam(tx, "amountIn") || "0";
@@ -276,7 +315,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   return {
     enabled: true,
     tx_count: transactions.length,
-    swap_count: transactions.filter(isSwapLikeTransaction).length,
+    swap_count: transactions.filter((tx) => isSwapLikeTransaction(tx, trackedDexDestinations)).length,
     gas_total_native: ethers.formatEther(gasTotalWei),
     gas_items: gasItems,
     swap_items: swapItems

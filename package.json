@@ -10,7 +10,8 @@
     "seed:sample": "node scripts/seedSampleData.js",
     "indexer:bridge": "node src/indexers/bridgeIndexer.js",
     "indexer:dex": "node src/indexers/dexIndexer.js",
-    "indexer:fees": "node src/indexers/feeIndexer.js"
+    "indexer:fees": "node src/indexers/feeIndexer.js",
+    "indexer:prices": "node src/indexers/priceIndexer.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

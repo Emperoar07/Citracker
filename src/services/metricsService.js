@@ -7,11 +7,40 @@ function intervalExpr(interval) {
   return "day";
 }
 
+function walletNormalizedSwapCte(extraWhere = "") {
+  return `
+    WITH normalized_swaps AS (
+      SELECT DISTINCT ON (ds.wallet_address, ds.tx_hash)
+        ds.wallet_address,
+        ds.chain_id,
+        ds.dex_name,
+        ds.tx_hash,
+        ds.block_timestamp,
+        ds.token_in_id,
+        ds.token_out_id,
+        ds.token_in_amount,
+        ds.token_out_amount,
+        ds.token_in_usd,
+        ds.token_out_usd,
+        ds.swap_volume_usd
+      FROM dex_swaps ds
+      LEFT JOIN tokens t_in ON t_in.id = ds.token_in_id
+      LEFT JOIN tokens t_out ON t_out.id = ds.token_out_id
+      WHERE ds.wallet_address = $1
+        AND ds.block_timestamp BETWEEN $2 AND $3
+        AND ds.status = 'confirmed'
+        ${extraWhere}
+      ORDER BY ds.wallet_address, ds.tx_hash, COALESCE(ds.log_index, 2147483647), ds.block_timestamp DESC
+    )
+  `;
+}
+
 export async function getWalletSummary(wallet, from, to) {
   const pool = getPool();
 
   const bridgeSql = `
     SELECT
+      COUNT(*) AS bridge_tx_count,
       COALESCE(SUM(CASE WHEN direction='inflow' THEN amount_usd END),0) AS inflow_usd,
       COALESCE(SUM(CASE WHEN direction='outflow' THEN amount_usd END),0) AS outflow_usd,
       COALESCE(SUM(amount_usd),0) AS volume_usd,
@@ -23,17 +52,16 @@ export async function getWalletSummary(wallet, from, to) {
   `;
 
   const dexSql = `
+    ${walletNormalizedSwapCte()}
     SELECT
       COUNT(*) AS swap_count,
       COALESCE(SUM(swap_volume_usd),0) AS dex_volume_usd
-    FROM dex_swaps
-    WHERE wallet_address = $1
-      AND block_timestamp BETWEEN $2 AND $3
-      AND status = 'confirmed';
+    FROM normalized_swaps;
   `;
 
   const gasSql = `
     SELECT
+      COUNT(DISTINCT (chain_id, tx_hash)) AS gas_tx_count,
       COALESCE(SUM(CASE WHEN chain_id=$4 THEN fee_native END),0) AS gas_l1_native,
       COALESCE(SUM(CASE WHEN chain_id=$5 THEN fee_native END),0) AS gas_l2_native,
       COALESCE(SUM(fee_usd),0) AS gas_total_usd
@@ -71,8 +99,10 @@ export async function getWalletSummary(wallet, from, to) {
     bridge_outflow_usd: bridge.outflow_usd,
     bridge_volume_usd: bridge.volume_usd,
     bridge_netflow_usd: bridge.netflow_usd,
+    bridge_tx_count: bridge.bridge_tx_count,
     dex_swap_volume_usd: dex.dex_volume_usd,
     dex_swap_count: dex.swap_count,
+    gas_tx_count: gas.gas_tx_count,
     gas_l1_native: gas.gas_l1_native,
     gas_l2_native: gas.gas_l2_native,
     gas_total_usd: gas.gas_total_usd,
@@ -99,15 +129,24 @@ export async function getWalletTimeseries(wallet, from, to, interval = "1d") {
         AND status = 'confirmed'
       GROUP BY 1
     ),
+    normalized_swaps AS (
+      SELECT DISTINCT ON (ds.wallet_address, ds.tx_hash)
+        ds.wallet_address,
+        ds.tx_hash,
+        ds.block_timestamp,
+        ds.swap_volume_usd
+      FROM dex_swaps ds
+      WHERE ds.wallet_address = $1
+        AND ds.block_timestamp BETWEEN $2 AND $3
+        AND ds.status = 'confirmed'
+      ORDER BY ds.wallet_address, ds.tx_hash, COALESCE(ds.log_index, 2147483647), ds.block_timestamp DESC
+    ),
     dex AS (
       SELECT
         date_trunc('${unit}', block_timestamp) AS ts,
         COUNT(*) AS dex_swap_count,
         COALESCE(SUM(swap_volume_usd),0) AS dex_volume_usd
-      FROM dex_swaps
-      WHERE wallet_address = $1
-        AND block_timestamp BETWEEN $2 AND $3
-        AND status = 'confirmed'
+      FROM normalized_swaps
       GROUP BY 1
     ),
     gas AS (
@@ -176,26 +215,23 @@ export async function getWalletTransfers(wallet, from, to, direction, token, lim
 export async function getWalletSwaps(wallet, from, to, dex, token, limit = 50) {
   const pool = getPool();
   const sql = `
+    ${walletNormalizedSwapCte(`
+        AND ($4::text IS NULL OR ds.dex_name = $4)
+        AND ($5::text IS NULL OR t_in.symbol = $5 OR t_out.symbol = $5)
+      `)}
     SELECT
-      ds.dex_name AS dex,
+      dex_name AS dex,
       t_in.symbol AS token_in,
       t_out.symbol AS token_out,
-      ds.token_in_amount,
-      ds.token_out_amount,
-      ds.swap_volume_usd,
-      ds.tx_hash,
-      ds.block_timestamp
-    FROM dex_swaps ds
-    LEFT JOIN tokens t_in ON t_in.id = ds.token_in_id
-    LEFT JOIN tokens t_out ON t_out.id = ds.token_out_id
-    WHERE ds.wallet_address = $1
-      AND ds.block_timestamp BETWEEN $2 AND $3
-      AND ds.status = 'confirmed'
-      AND ($4::text IS NULL OR ds.dex_name = $4)
-      AND (
-        $5::text IS NULL OR t_in.symbol = $5 OR t_out.symbol = $5
-      )
-    ORDER BY ds.block_timestamp DESC
+      token_in_amount,
+      token_out_amount,
+      swap_volume_usd,
+      tx_hash,
+      block_timestamp
+    FROM normalized_swaps ns
+    LEFT JOIN tokens t_in ON t_in.id = ns.token_in_id
+    LEFT JOIN tokens t_out ON t_out.id = ns.token_out_id
+    ORDER BY block_timestamp DESC
     LIMIT $6;
   `;
   const result = await pool.query(sql, [wallet, from, to, dex || null, token || null, limit]);

@@ -1,0 +1,104 @@
+import { env } from "../config.js";
+import { getPool } from "../db.js";
+
+const HISTORY_PRICE_CACHE = new Map();
+const STABLECOIN_SYMBOLS = new Set(["USDC", "USDC.E", "USDT", "USDT.E"]);
+const BITCOIN_SYMBOLS = new Set(["BTC", "WBTC", "CBTC", "CITREA BTC", "CITREA_BTC"]);
+const ETHEREUM_SYMBOLS = new Set(["ETH", "WETH"]);
+
+function normalizeSymbol(symbol) {
+  return String(symbol || "")
+    .trim()
+    .toUpperCase();
+}
+
+function symbolToAsset(symbol) {
+  const normalized = normalizeSymbol(symbol);
+
+  if (STABLECOIN_SYMBOLS.has(normalized)) {
+    return { kind: "static", source: "stablecoin", price: 1 };
+  }
+
+  if (BITCOIN_SYMBOLS.has(normalized)) {
+    return { kind: "coingecko", source: "coingecko:bitcoin", assetId: "bitcoin" };
+  }
+
+  if (ETHEREUM_SYMBOLS.has(normalized)) {
+    return { kind: "coingecko", source: "coingecko:ethereum", assetId: "ethereum" };
+  }
+
+  return null;
+}
+
+function formatCoinGeckoDate(timestamp) {
+  const d = new Date(timestamp);
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const year = d.getUTCFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+function normalizeSnapshotMinute(timestamp) {
+  const d = new Date(timestamp);
+  d.setUTCSeconds(0, 0);
+  return d.toISOString();
+}
+
+async function fetchCoinGeckoHistory(assetId, timestamp) {
+  const date = formatCoinGeckoDate(timestamp);
+  const cacheKey = `${assetId}:${date}`;
+  if (HISTORY_PRICE_CACHE.has(cacheKey)) {
+    return HISTORY_PRICE_CACHE.get(cacheKey);
+  }
+
+  const url = new URL(`${env.coinGeckoApiBase.replace(/\/$/, "")}/coins/${assetId}/history`);
+  url.searchParams.set("date", date);
+  url.searchParams.set("localization", "false");
+
+  const headers = {};
+  if (env.coinGeckoDemoApiKey) {
+    headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
+  }
+
+  const res = await fetch(url.toString(), { headers });
+  if (!res.ok) {
+    throw new Error(`CoinGecko HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const usd = Number(data?.market_data?.current_price?.usd);
+  const value = Number.isFinite(usd) ? usd : null;
+  HISTORY_PRICE_CACHE.set(cacheKey, value);
+  return value;
+}
+
+export async function resolveTokenUsdPrice(symbol, timestamp) {
+  const asset = symbolToAsset(symbol);
+  if (!asset) return null;
+  if (asset.kind === "static") return { price: asset.price, source: asset.source };
+
+  const price = await fetchCoinGeckoHistory(asset.assetId, timestamp);
+  if (price === null) return null;
+  return { price, source: asset.source };
+}
+
+export async function resolveNativeUsdPrice(chainId, timestamp) {
+  if (Number(chainId) === 1) {
+    return resolveTokenUsdPrice("ETH", timestamp);
+  }
+
+  return resolveTokenUsdPrice("CBTC", timestamp);
+}
+
+export async function upsertTokenPriceSnapshot(tokenId, timestamp, price, source) {
+  if (!tokenId || price === null || price === undefined) return;
+
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO token_prices_1m (token_id, quote_currency, ts_minute, price, source)
+     VALUES ($1, 'USD', $2::timestamptz, $3, $4)
+     ON CONFLICT (token_id, quote_currency, ts_minute)
+     DO UPDATE SET price = EXCLUDED.price, source = EXCLUDED.source`,
+    [tokenId, normalizeSnapshotMinute(timestamp), String(price), source]
+  );
+}

@@ -409,9 +409,40 @@ button {
   font-size: 1rem;
 }
 
-.tables {
+.activity-panels {
   display: grid;
   gap: 12px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#dexPanel,
+#gasPanel {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.summary-stat {
+  display: grid;
+  gap: 8px;
+  min-height: 96px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 248, 239, 0.08);
+  background: rgba(20, 17, 14, 0.54);
+}
+
+.summary-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.summary-value {
+  font-size: 1.16rem;
+  line-height: 1.18;
 }
 
 .network-stack {
@@ -523,6 +554,10 @@ tbody tr:last-child td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hero-top,
   .gas-banner-head {
     flex-direction: column;
@@ -546,7 +581,10 @@ tbody tr:last-child td {
   .filters,
   .kpis,
   .network-kpis,
-  .gas-banner-metrics {
+  .gas-banner-metrics,
+  .summary-grid,
+  #dexPanel,
+  #gasPanel {
     grid-template-columns: 1fr;
   }
 

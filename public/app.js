@@ -11,10 +11,9 @@ const bridgeOriginsEl = document.getElementById("bridgeOrigins");
 const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
 const sourceHealthEl = document.getElementById("sourceHealth");
-
-const transfersTbody = document.querySelector("#transfersTable tbody");
-const swapsTbody = document.querySelector("#swapsTable tbody");
-const gasTbody = document.querySelector("#gasTable tbody");
+const bridgePanelEl = document.getElementById("bridgePanel");
+const dexPanelEl = document.getElementById("dexPanel");
+const gasPanelEl = document.getElementById("gasPanel");
 const tokenSpendTbody = document.querySelector("#tokenSpendTable tbody");
 
 let networkPollHandle = null;
@@ -96,58 +95,39 @@ function renderKpis(summary) {
     .join("");
 }
 
+function renderSummaryPanel(element, stats) {
+  element.innerHTML = stats
+    .map(
+      ([label, value]) => `
+        <div class="summary-stat">
+          <span class="summary-label">${label}</span>
+          <strong class="summary-value">${value}</strong>
+        </div>`
+    )
+    .join("");
+}
+
 function fillRows(tbody, rowsHtml, colspan) {
   tbody.innerHTML = rowsHtml || `<tr><td colspan="${colspan}">No data</td></tr>`;
 }
 
-function renderWalletTables(transfers, swaps, gas) {
-  fillRows(
-    transfersTbody,
-    transfers.items
-      .map((item) => `
-        <tr>
-          <td>${new Date(item.block_timestamp).toLocaleString()}</td>
-          <td>${item.direction}</td>
-          <td>${item.token || "-"}</td>
-          <td>${number(item.amount)}</td>
-          <td>${money(item.amount_usd)}</td>
-          <td title="${item.source_tx_hash}">${shortHash(item.source_tx_hash)}</td>
-        </tr>`)
-      .join(""),
-    6
-  );
+function renderWalletPanels(summary) {
+  renderSummaryPanel(bridgePanelEl, [
+    ["Total Transactions", number(summary.bridge.tx_count, 0)],
+    ["In Volume (USDT)", money(summary.bridge.inflow_usd)],
+    ["Out Volume (USDT)", money(summary.bridge.outflow_usd)],
+    ["Total Value (USDT)", money(summary.bridge.volume_usd)]
+  ]);
 
-  fillRows(
-    swapsTbody,
-    swaps.items
-      .map((item) => `
-        <tr>
-          <td>${new Date(item.block_timestamp).toLocaleString()}</td>
-          <td>${item.dex}</td>
-          <td>${item.token_in || "-"} ${number(item.token_in_amount)}</td>
-          <td>${item.token_out || "-"} ${number(item.token_out_amount)}</td>
-          <td>${money(item.swap_volume_usd)}</td>
-          <td title="${item.tx_hash}">${shortHash(item.tx_hash)}</td>
-        </tr>`)
-      .join(""),
-    6
-  );
+  renderSummaryPanel(dexPanelEl, [
+    ["Total Transactions", number(summary.dex.swap_count, 0)],
+    ["Total Value (USDT)", money(summary.dex.swap_volume_usd)]
+  ]);
 
-  fillRows(
-    gasTbody,
-    gas.items
-      .map((item) => `
-        <tr>
-          <td>${new Date(item.block_timestamp).toLocaleString()}</td>
-          <td>${item.chain_id}</td>
-          <td>${item.tx_category || "other"}</td>
-          <td>${number(item.fee_native, 8)}</td>
-          <td>${money(item.fee_usd)}</td>
-          <td title="${item.tx_hash}">${shortHash(item.tx_hash)}</td>
-        </tr>`)
-      .join(""),
-    6
-  );
+  renderSummaryPanel(gasPanelEl, [
+    ["Total Transactions", number(summary.gas.tx_count, 0)],
+    ["Total Value (USDT)", money(summary.gas.total_usd)]
+  ]);
 }
 
 function renderNetworkSummary(payload) {
@@ -242,15 +222,10 @@ async function loadWalletData() {
   setStatus("Loading all-time wallet totals...");
 
   try {
-    const [summary, transfers, swaps, gas] = await Promise.all([
-      fetchJsonOrThrow(`${base}/summary`),
-      fetchJsonOrThrow(`${base}/transfers?limit=20`),
-      fetchJsonOrThrow(`${base}/swaps?limit=20`),
-      fetchJsonOrThrow(`${base}/gas?chain=all&category=all&limit=20`)
-    ]);
+    const summary = await fetchJsonOrThrow(`${base}/summary`);
 
     renderKpis(summary);
-    renderWalletTables(transfers, swaps, gas);
+    renderWalletPanels(summary);
 
     setStatus(`Loaded all-time totals for ${wallet}.`);
   } catch (error) {

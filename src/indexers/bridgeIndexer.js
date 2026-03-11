@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { env } from "../config.js";
 import { getPool } from "../db.js";
 import {
-  chunkRange,
+  chunkRangeLimited,
   getOrCreateCursor,
   normalizeAddress,
   readErc20Metadata,
@@ -105,12 +105,18 @@ async function processCanonicalContract(contractConfig, provider) {
   const iface = new ethers.Interface(CANONICAL_BRIDGE_ABI);
   const streamKey = `bridge:${contractConfig.bridge_variant}:${contractConfig.chain_id}:${contractConfig.contract_address}`;
   const latestBlock = await provider.getBlockNumber();
+  const chunkSize = Math.min(env.indexerChunkSize, env.rpcMaxLogRange);
   const startBlock = await getOrCreateCursor(
     streamKey,
     Number(contractConfig.chain_id),
     contractConfig.start_block ?? env.startBlockEth
   );
-  const ranges = chunkRange(startBlock + 1, latestBlock, env.indexerChunkSize);
+  const ranges = chunkRangeLimited(
+    startBlock + 1,
+    latestBlock,
+    chunkSize,
+    env.indexerMaxRangesPerStream
+  );
 
   for (const [fromBlock, toBlock] of ranges) {
     const logs = await provider.getLogs({
@@ -189,12 +195,18 @@ async function processLayerZeroOft(contractConfig, provider) {
   const iface = new ethers.Interface(OFT_BRIDGE_ABI);
   const streamKey = `bridge:${contractConfig.bridge_variant}:${contractConfig.chain_id}:${contractConfig.contract_address}`;
   const latestBlock = await provider.getBlockNumber();
+  const chunkSize = Math.min(env.indexerChunkSize, env.rpcMaxLogRange);
   const startBlock = await getOrCreateCursor(
     streamKey,
     Number(contractConfig.chain_id),
     contractConfig.start_block ?? env.startBlockCitrea
   );
-  const ranges = chunkRange(startBlock + 1, latestBlock, env.indexerChunkSize);
+  const ranges = chunkRangeLimited(
+    startBlock + 1,
+    latestBlock,
+    chunkSize,
+    env.indexerMaxRangesPerStream
+  );
   const { tokenId, metadata } = await resolveOftToken(
     contractConfig.contract_address,
     provider,
@@ -266,12 +278,18 @@ async function processCitreaBtcBridge(contractConfig, provider) {
   const iface = new ethers.Interface(CITREA_BTC_BRIDGE_ABI);
   const streamKey = `bridge:${contractConfig.bridge_variant}:${contractConfig.chain_id}:${contractConfig.contract_address}`;
   const latestBlock = await provider.getBlockNumber();
+  const chunkSize = Math.min(env.indexerChunkSize, env.rpcMaxLogRange);
   const startBlock = await getOrCreateCursor(
     streamKey,
     Number(contractConfig.chain_id),
     contractConfig.start_block ?? env.startBlockCitrea
   );
-  const ranges = chunkRange(startBlock + 1, latestBlock, env.indexerChunkSize);
+  const ranges = chunkRangeLimited(
+    startBlock + 1,
+    latestBlock,
+    chunkSize,
+    env.indexerMaxRangesPerStream
+  );
   const bridge = new ethers.Contract(contractConfig.contract_address, CITREA_BTC_BRIDGE_ABI, provider);
   const satsAmount = await bridge.optimisticWithdrawAmountSats();
   const amountRaw = satsAmount.toString();

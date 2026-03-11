@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { env } from "../config.js";
 import { getPool } from "../db.js";
 import {
-  chunkRange,
+  chunkRangeLimited,
   getOrCreateCursor,
   normalizeAddress,
   readErc20Metadata,
@@ -32,6 +32,8 @@ const V3_POOL_SWAP_ABIS = [
   "event Swap(address indexed sender,address indexed recipient,int256 amount0,int256 amount1,uint160 price,uint128 liquidity,int24 tick,uint24 fee)"
 ];
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 function eventTopics(variant) {
   if (variant === "uniswap_v2") {
     return {
@@ -57,6 +59,70 @@ function absoluteDecimal(value, decimals) {
   const raw = BigInt(value.toString());
   const abs = raw < 0n ? raw * -1n : raw;
   return ethers.formatUnits(abs, decimals);
+}
+
+function findDecodedParam(tx, ...names) {
+  const params = Array.isArray(tx?.decoded_input?.parameters) ? tx.decoded_input.parameters : [];
+  for (const name of names) {
+    const match = params.find((item) => item?.name === name);
+    if (match) return match.value;
+  }
+  return null;
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Explorer HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function fetchRouterTransactions(routerAddress, maxItems) {
+  let items = [];
+  let nextPageParams = null;
+
+  do {
+    const url = new URL(`${env.citreascanApiUrl.replace(/\/$/, "")}/addresses/${routerAddress}/transactions`);
+    if (nextPageParams) {
+      Object.entries(nextPageParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+          url.searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    const data = await fetchJson(url.toString());
+    const pageItems = Array.isArray(data?.items) ? data.items : [];
+    items = items.concat(pageItems);
+    nextPageParams = data?.next_page_params || null;
+  } while (nextPageParams && items.length < maxItems);
+
+  return items.slice(0, maxItems);
+}
+
+async function resolveL2Token(provider, address, fallbackSymbol = "cBTC", fallbackName = "Citrea Bitcoin") {
+  if (!address || normalizeAddress(address) === ZERO_ADDRESS) {
+    const tokenId = await upsertToken({
+      symbol: fallbackSymbol,
+      name: fallbackName,
+      decimals: 18,
+      l2ChainId: env.citreaChainId,
+      isNative: true
+    });
+    return { tokenId, decimals: 18, symbol: fallbackSymbol };
+  }
+
+  const metadata = await readErc20Metadata(provider, address);
+  const tokenId = await upsertToken({
+    symbol: metadata.symbol,
+    name: metadata.name,
+    decimals: metadata.decimals,
+    l2ChainId: env.citreaChainId,
+    l2Address: address
+  });
+
+  return { tokenId, decimals: metadata.decimals, symbol: metadata.symbol };
 }
 
 async function upsertTrackedDexContract(contract) {
@@ -88,8 +154,14 @@ async function discoverPools(factoryConfig, provider) {
   const topics = eventTopics(factoryConfig.dex_variant);
   const streamKey = `dex-factory:${factoryConfig.dex_name}:${normalizeAddress(factoryConfig.contract_address)}`;
   const latestBlock = await provider.getBlockNumber();
+  const chunkSize = Math.min(env.indexerChunkSize, env.rpcMaxLogRange);
   const startBlock = await getOrCreateCursor(streamKey, Number(factoryConfig.chain_id), factoryConfig.start_block ?? env.startBlockCitrea);
-  const ranges = chunkRange(startBlock + 1, latestBlock, env.indexerChunkSize);
+  const ranges = chunkRangeLimited(
+    startBlock + 1,
+    latestBlock,
+    chunkSize,
+    env.indexerMaxRangesPerStream
+  );
   const iface =
     factoryConfig.dex_variant === "uniswap_v2"
       ? new ethers.Interface(V2_FACTORY_ABI)
@@ -148,8 +220,14 @@ async function processPool(poolConfig, provider) {
   const topics = eventTopics(poolConfig.dex_variant);
   const streamKey = `dex-pool:${poolConfig.dex_variant}:${normalizeAddress(poolConfig.contract_address)}`;
   const latestBlock = await provider.getBlockNumber();
+  const chunkSize = Math.min(env.indexerChunkSize, env.rpcMaxLogRange);
   const startBlock = await getOrCreateCursor(streamKey, Number(poolConfig.chain_id), poolConfig.start_block ?? env.startBlockCitrea);
-  const ranges = chunkRange(startBlock + 1, latestBlock, env.indexerChunkSize);
+  const ranges = chunkRangeLimited(
+    startBlock + 1,
+    latestBlock,
+    chunkSize,
+    env.indexerMaxRangesPerStream
+  );
   const pool = getPool();
   const tokens = await readPoolTokens(provider, poolConfig.contract_address);
   const [token0Meta, token1Meta] = await Promise.all([
@@ -286,6 +364,83 @@ async function processPool(poolConfig, provider) {
   }
 }
 
+async function processRouterTransactions(routerConfig, provider) {
+  if (!env.citreascanApiUrl) return;
+
+  const pool = getPool();
+  const transactions = await fetchRouterTransactions(
+    normalizeAddress(routerConfig.contract_address),
+    env.indexerMaxPendingItems
+  );
+
+  for (const tx of transactions) {
+    const method = String(tx?.method || tx?.decoded_input?.method_call || "").toLowerCase();
+    if (!method.includes("swap")) continue;
+
+    const amountInRaw = findDecodedParam(tx, "amountIn", "amountInMaximum", "amountInMax");
+    const amountOutRaw = findDecodedParam(
+      tx,
+      "amountOut",
+      "amountOutMinimum",
+      "minAmountOut",
+      "amountOutMin"
+    );
+    const tokenInAddress = findDecodedParam(tx, "tokenIn", "token_from");
+    const tokenOutAddress = findDecodedParam(tx, "tokenOut", "token_to");
+
+    if (!amountInRaw || !amountOutRaw) continue;
+
+    const [tokenIn, tokenOut] = await Promise.all([
+      resolveL2Token(provider, tokenInAddress),
+      resolveL2Token(provider, tokenOutAddress)
+    ]);
+
+    await pool.query(
+      `INSERT INTO dex_swaps (
+        dex_name,
+        protocol_version,
+        wallet_address,
+        pool_address,
+        router_address,
+        chain_id,
+        tx_hash,
+        log_index,
+        block_number,
+        block_timestamp,
+        token_in_id,
+        token_out_id,
+        token_in_raw,
+        token_out_raw,
+        token_in_amount,
+        token_out_amount,
+        event_name
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11,$12,$13,$14,$15,$16,$17
+      )
+      ON CONFLICT DO NOTHING`,
+      [
+        routerConfig.dex_name,
+        routerConfig.dex_variant,
+        normalizeAddress(tx?.from?.hash || tx?.from),
+        null,
+        normalizeAddress(routerConfig.contract_address),
+        Number(routerConfig.chain_id),
+        tx.hash,
+        null,
+        Number(tx.block_number),
+        tx.timestamp,
+        tokenIn.tokenId,
+        tokenOut.tokenId,
+        String(amountInRaw),
+        String(amountOutRaw),
+        ethers.formatUnits(amountInRaw, tokenIn.decimals),
+        ethers.formatUnits(amountOutRaw, tokenOut.decimals),
+        tx.method || tx?.decoded_input?.method_call || "swap"
+      ]
+    );
+  }
+}
+
 async function run() {
   if (!env.citreaRpcUrl) {
     throw new Error("CITREA_RPC_URL is required");
@@ -316,6 +471,18 @@ async function run() {
 
   for (const poolConfig of pools.rows) {
     await processPool(poolConfig, provider);
+  }
+
+  const routers = await pool.query(
+    `SELECT chain_id, contract_address, dex_name, dex_variant, contract_role, start_block
+     FROM tracked_dex_contracts
+     WHERE is_active = true AND chain_id = $1 AND contract_role = 'router'
+     ORDER BY dex_name, contract_address`,
+    [env.citreaChainId]
+  );
+
+  for (const routerConfig of routers.rows) {
+    await processRouterTransactions(routerConfig, provider);
   }
 
   console.log("dexIndexer completed");

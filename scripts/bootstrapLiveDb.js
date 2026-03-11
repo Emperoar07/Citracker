@@ -53,6 +53,21 @@ async function run() {
     );
   }
 
+  await pool.query(
+    `UPDATE tracked_bridge_contracts
+     SET is_active = FALSE
+     WHERE chain_id IN (${bridgeContracts.map((_, idx) => `$${idx + 1}`).join(", ")})
+       AND (chain_id, contract_address) NOT IN (
+         ${bridgeContracts
+           .map((_, idx) => `($${bridgeContracts.length + idx * 2 + 1}, $${bridgeContracts.length + idx * 2 + 2})`)
+           .join(", ")}
+       )`,
+    [
+      ...bridgeContracts.map((contract) => contract.chainId),
+      ...bridgeContracts.flatMap((contract) => [contract.chainId, contract.contractAddress.toLowerCase()])
+    ]
+  );
+
   for (const contract of dexContracts) {
     await pool.query(
       `INSERT INTO tracked_dex_contracts (
@@ -81,6 +96,22 @@ async function run() {
       ]
     );
   }
+
+  await pool.query(
+    `UPDATE tracked_dex_contracts
+     SET is_active = FALSE
+     WHERE chain_id IN (${dexContracts.map((_, idx) => `$${idx + 1}`).join(", ")})
+       AND contract_role IN ('factory', 'router')
+       AND (chain_id, contract_address) NOT IN (
+         ${dexContracts
+           .map((_, idx) => `($${dexContracts.length + idx * 2 + 1}, $${dexContracts.length + idx * 2 + 2})`)
+           .join(", ")}
+       )`,
+    [
+      ...dexContracts.map((contract) => contract.chainId),
+      ...dexContracts.flatMap((contract) => [contract.chainId, contract.contractAddress.toLowerCase()])
+    ]
+  );
 
   console.log("Live DB bootstrapped.");
   process.exit(0);

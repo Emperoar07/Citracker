@@ -10,9 +10,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run-indexers:
+  bridge:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
@@ -20,6 +20,12 @@ jobs:
       START_BLOCK_ETH: ${{ secrets.START_BLOCK_ETH }}
       START_BLOCK_CITREA: ${{ secrets.START_BLOCK_CITREA }}
       INDEXER_CHUNK_SIZE: ${{ secrets.INDEXER_CHUNK_SIZE }}
+      RPC_MAX_LOG_RANGE: ${{ secrets.RPC_MAX_LOG_RANGE }}
+      INDEXER_MAX_RANGES_PER_STREAM: ${{ secrets.INDEXER_MAX_RANGES_PER_STREAM }}
+      INDEXER_MAX_PENDING_ITEMS: ${{ secrets.INDEXER_MAX_PENDING_ITEMS }}
+      PRICING_BATCH_SIZE: ${{ secrets.PRICING_BATCH_SIZE }}
+      COINGECKO_API_BASE: ${{ secrets.COINGECKO_API_BASE }}
+      COINGECKO_DEMO_API_KEY: ${{ secrets.COINGECKO_DEMO_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,8 +45,114 @@ jobs:
       - name: Run bridge indexer
         run: npm run indexer:bridge
 
+  dex:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+      CITREA_RPC_URL: ${{ secrets.CITREA_RPC_URL }}
+      START_BLOCK_ETH: ${{ secrets.START_BLOCK_ETH }}
+      START_BLOCK_CITREA: ${{ secrets.START_BLOCK_CITREA }}
+      INDEXER_CHUNK_SIZE: ${{ secrets.INDEXER_CHUNK_SIZE }}
+      RPC_MAX_LOG_RANGE: ${{ secrets.RPC_MAX_LOG_RANGE }}
+      INDEXER_MAX_RANGES_PER_STREAM: ${{ secrets.INDEXER_MAX_RANGES_PER_STREAM }}
+      INDEXER_MAX_PENDING_ITEMS: ${{ secrets.INDEXER_MAX_PENDING_ITEMS }}
+      PRICING_BATCH_SIZE: ${{ secrets.PRICING_BATCH_SIZE }}
+      COINGECKO_API_BASE: ${{ secrets.COINGECKO_API_BASE }}
+      COINGECKO_DEMO_API_KEY: ${{ secrets.COINGECKO_DEMO_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bootstrap database
+        run: npm run db:bootstrap
+
       - name: Run dex indexer
         run: npm run indexer:dex
 
+  fees:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - bridge
+      - dex
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+      CITREA_RPC_URL: ${{ secrets.CITREA_RPC_URL }}
+      START_BLOCK_ETH: ${{ secrets.START_BLOCK_ETH }}
+      START_BLOCK_CITREA: ${{ secrets.START_BLOCK_CITREA }}
+      INDEXER_CHUNK_SIZE: ${{ secrets.INDEXER_CHUNK_SIZE }}
+      RPC_MAX_LOG_RANGE: ${{ secrets.RPC_MAX_LOG_RANGE }}
+      INDEXER_MAX_RANGES_PER_STREAM: ${{ secrets.INDEXER_MAX_RANGES_PER_STREAM }}
+      INDEXER_MAX_PENDING_ITEMS: ${{ secrets.INDEXER_MAX_PENDING_ITEMS }}
+      PRICING_BATCH_SIZE: ${{ secrets.PRICING_BATCH_SIZE }}
+      COINGECKO_API_BASE: ${{ secrets.COINGECKO_API_BASE }}
+      COINGECKO_DEMO_API_KEY: ${{ secrets.COINGECKO_DEMO_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bootstrap database
+        run: npm run db:bootstrap
+
       - name: Run fee indexer
         run: npm run indexer:fees
+
+  prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - bridge
+      - dex
+      - fees
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+      CITREA_RPC_URL: ${{ secrets.CITREA_RPC_URL }}
+      START_BLOCK_ETH: ${{ secrets.START_BLOCK_ETH }}
+      START_BLOCK_CITREA: ${{ secrets.START_BLOCK_CITREA }}
+      INDEXER_CHUNK_SIZE: ${{ secrets.INDEXER_CHUNK_SIZE }}
+      RPC_MAX_LOG_RANGE: ${{ secrets.RPC_MAX_LOG_RANGE }}
+      INDEXER_MAX_RANGES_PER_STREAM: ${{ secrets.INDEXER_MAX_RANGES_PER_STREAM }}
+      INDEXER_MAX_PENDING_ITEMS: ${{ secrets.INDEXER_MAX_PENDING_ITEMS }}
+      PRICING_BATCH_SIZE: ${{ secrets.PRICING_BATCH_SIZE }}
+      COINGECKO_API_BASE: ${{ secrets.COINGECKO_API_BASE }}
+      COINGECKO_DEMO_API_KEY: ${{ secrets.COINGECKO_DEMO_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bootstrap database
+        run: npm run db:bootstrap
+
+      - name: Run price indexer
+        run: npm run indexer:prices
