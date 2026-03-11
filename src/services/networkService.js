@@ -10,9 +10,99 @@ async function fetchJson(url) {
   return res.json();
 }
 
+async function ensureRuntimeCacheTable() {
+  const pool = getPool();
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS runtime_cache (
+      cache_key text PRIMARY KEY,
+      cache_value jsonb NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`
+  );
+}
+
+async function getRuntimeCache(cacheKey) {
+  await ensureRuntimeCacheTable();
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT cache_value, updated_at
+     FROM runtime_cache
+     WHERE cache_key = $1`,
+    [cacheKey]
+  );
+  if (!result.rows[0]) return null;
+  return {
+    value: result.rows[0].cache_value,
+    updated_at: result.rows[0].updated_at
+  };
+}
+
+async function setRuntimeCache(cacheKey, value) {
+  await ensureRuntimeCacheTable();
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO runtime_cache (cache_key, cache_value, updated_at)
+     VALUES ($1, $2::jsonb, now())
+     ON CONFLICT (cache_key)
+     DO UPDATE SET cache_value = EXCLUDED.cache_value, updated_at = now()`,
+    [cacheKey, JSON.stringify(value)]
+  );
+}
+
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function utcDateString(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+export async function refreshLiveTransactionState(totalTransactions, fallbackCount = 0, fallbackDate = null) {
+  const today = utcDateString();
+  const cacheKey = "citrea:transactions-today:live-state";
+  const cached = await getRuntimeCache(cacheKey);
+  const currentTotal = toNumber(totalTransactions);
+  let state = cached?.value || null;
+
+  if (!state) {
+    state = {
+      date: today,
+      baseline_total_transactions:
+        fallbackDate === today ? Math.max(currentTotal - toNumber(fallbackCount), 0) : currentTotal,
+      last_total_transactions: currentTotal,
+      exact: fallbackDate === today
+    };
+    await setRuntimeCache(cacheKey, state);
+    return {
+      count: Math.max(currentTotal - toNumber(state.baseline_total_transactions), 0),
+      date: today,
+      exact: Boolean(state.exact)
+    };
+  }
+
+  if (state.date !== today) {
+    state = {
+      date: today,
+      baseline_total_transactions: toNumber(state.last_total_transactions, currentTotal),
+      last_total_transactions: currentTotal,
+      exact: true
+    };
+    await setRuntimeCache(cacheKey, state);
+    return {
+      count: Math.max(currentTotal - toNumber(state.baseline_total_transactions), 0),
+      date: today,
+      exact: true
+    };
+  }
+
+  state.last_total_transactions = currentTotal;
+  await setRuntimeCache(cacheKey, state);
+  return {
+    count: Math.max(currentTotal - toNumber(state.baseline_total_transactions), 0),
+    date: today,
+    exact: Boolean(state.exact)
+  };
 }
 
 async function getDefillamaChainTvl() {
@@ -233,6 +323,18 @@ export async function getNetworkSummary() {
     }))
   ]);
 
+  const liveTodayTransactions = explorer.error
+    ? { count: 0, date: utcDateString(), exact: false }
+    : await refreshLiveTransactionState(
+        explorer.total_transactions || 0,
+        explorer.latest_daily_transactions || explorer.transactions_today || 0,
+        explorer.latest_daily_transactions_date || null
+      ).catch(() => ({
+        count: explorer.latest_daily_transactions || explorer.transactions_today || 0,
+        date: explorer.latest_daily_transactions_date || utcDateString(),
+        exact: false
+      }));
+
   const errors = [explorer.error, chainTvl.error, bridge.error, dex.error, indexed.error].filter(Boolean);
 
   return {
@@ -259,7 +361,9 @@ export async function getNetworkSummary() {
       total_users: explorer.total_users || indexed.indexed_wallet_count,
       indexed_wallet_count: indexed.indexed_wallet_count,
       total_transactions: explorer.total_transactions || 0,
-      transactions_today: explorer.transactions_today || 0,
+      transactions_today: liveTodayTransactions.count,
+      transactions_today_date: liveTodayTransactions.date,
+      transactions_today_exact: liveTodayTransactions.exact,
       latest_daily_transactions: explorer.latest_daily_transactions || explorer.transactions_today || 0,
       latest_daily_transactions_date: explorer.latest_daily_transactions_date || null,
       total_blocks: explorer.total_blocks || 0,

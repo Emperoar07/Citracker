@@ -113,9 +113,9 @@ function renderWalletPanels(summary) {
 
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
-  const latestDailyLabel = metrics.latest_daily_transactions_date
-    ? `Latest Daily Tx (${shortDateLabel(metrics.latest_daily_transactions_date)})`
-    : "Latest Daily Tx";
+  const todayLabel = metrics.transactions_today_date
+    ? `Tx Today (${shortDateLabel(metrics.transactions_today_date)})`
+    : "Tx Today";
   const cards = [
     ["Indexed Volume (USD)", metrics.total_activity_volume_usd],
     ["Indexed Inflow (USD)", metrics.total_inflow_usd],
@@ -124,7 +124,7 @@ function renderNetworkSummary(payload) {
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
     ["Users", metrics.total_users],
     ["Transactions", metrics.total_transactions],
-    [latestDailyLabel, metrics.latest_daily_transactions],
+    [todayLabel, metrics.transactions_today],
     ["DEX 24h (USD)", metrics.dex_volume_24h_usd]
   ];
 
