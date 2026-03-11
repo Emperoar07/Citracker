@@ -27,9 +27,28 @@
               <p class="eyebrow">Citrea Mainnet Intelligence</p>
             </div>
           </div>
-          <div class="live-pill">
-            <span class="live-dot"></span>
-            <span id="networkLiveLabel">Network panel polling</span>
+          <div class="hero-controls">
+            <div class="live-pill">
+              <span class="live-dot"></span>
+              <span id="networkLiveLabel">Network panel polling</span>
+            </div>
+            <details class="source-dropdown">
+              <summary class="source-toggle" aria-label="Live sources">
+                <span class="source-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M12 3l8 4.5v9L12 21 4 16.5v-9L12 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+                    <path d="M12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+                  </svg>
+                </span>
+                <span class="source-toggle-label">Sources</span>
+              </summary>
+              <div class="source-dropdown-panel">
+                <div class="source-dropdown-head">
+                  <h3>Live Sources</h3>
+                </div>
+                <div class="metric-list" id="sourceHealth"></div>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -132,7 +151,6 @@
           <div class="panel-head">
             <div>
               <h2>Citrea Mainnet Live</h2>
-              <p>Permanent network view with continuous Citrea-wide updates.</p>
             </div>
             <div class="mini-meta">
               <span id="networkUpdatedAt">Waiting for first sync</span>
@@ -166,13 +184,6 @@
                 <tbody></tbody>
               </table>
             </div>
-          </section>
-
-          <section class="card network-stack">
-            <div class="section-head">
-              <h3>Live Sources</h3>
-            </div>
-            <div class="metric-list" id="sourceHealth"></div>
           </section>
         </aside>
       </section>

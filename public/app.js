@@ -66,12 +66,6 @@ function number(value, digits = 6) {
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
-function percent(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0%";
-  return `${(n * 100).toFixed(2)}%`;
-}
-
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.style.color = isError ? "#ff6b6b" : "#c8b59d";
@@ -181,9 +175,7 @@ function renderNetworkSummary(payload) {
     ["From BTC Chain (USD)", metrics.bridge_from_btc_usd],
     ["From EVM Chains (USD)", metrics.bridge_from_evm_usd],
     ["Bridge Volume Indexed (USD)", metrics.total_bridge_volume_usd],
-    ["DEX Volume All Time (USD)", metrics.dex_volume_all_time_usd],
-    ["Average Block Time", `${number(metrics.average_block_time_ms, 0)} ms`],
-    ["Network Utilization", percent(metrics.network_utilization_percentage)]
+    ["DEX Volume All Time (USD)", metrics.dex_volume_all_time_usd]
   ]
     .map(([label, value]) => `
       <div class="metric-row">
