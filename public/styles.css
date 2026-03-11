@@ -515,6 +515,10 @@ tbody tr:last-child td {
   color: #ff7a7a;
 }
 
+.source-tracked {
+  color: var(--accent);
+}
+
 .source-neutral {
   color: #ffd27f;
 }

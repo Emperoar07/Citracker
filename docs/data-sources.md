@@ -1,6 +1,20 @@
 # Citracker Data Sources
 
-This file separates Citrea-related data sources into production-integrated sources, documented app-level sources, UI-only references, and manual analytics references.
+This file separates Citrea-related data sources into production-integrated sources, tracked app-hub entries, UI-only references, and manual analytics references.
+
+## Registry Semantics
+
+- `status` answers whether a source is currently monitored in the registry or live-polled by the backend
+- `coverage` answers whether the source contributes to runtime totals:
+  - `metrics`: already reflected in wallet or network totals
+  - `registry`: tracked in the source registry, but not yet counted in totals
+  - `reference`: visible only for transparency
+- `confidence` answers how much trust to assign:
+  - `official truth`
+  - `derived index`
+  - `secondary cross-check`
+  - `registry tracked`
+  - `reference only`
 
 ## Source Policy
 
@@ -9,57 +23,65 @@ Use this order of trust:
 1. Citrea official explorer and official docs
 2. Direct RPC reads and Citracker's indexed Postgres data
 3. DefiLlama and CoinGecko for cross-checks and pricing
-4. App-level APIs such as Fibrous or Symbiosis only when the endpoint and semantics are confirmed
+4. Citrea app-hub tracked apps, once their contracts or APIs are pinned
 5. Dune and Nansen only as manual validation references unless a maintained Citrea query/API path is explicitly wired
 
 ## Production-Integrated Sources
 
-| Source | Type | Official | Cadence | Purpose | URL |
-|---|---|---:|---|---|---|
-| Citrea Explorer API | official api | Yes | 5m | Wallet tx count, gas, token transfers, chain stats | `https://explorer.mainnet.citrea.xyz/api/v2` |
-| Citrea Explorer Stats | official api | Yes | 5m | Total txs, users, gas prices, blocks | `https://explorer.mainnet.citrea.xyz/api/v2/stats` |
-| DefiLlama Chains | secondary api | No | 5m | Citrea TVL cross-check | `https://api.llama.fi/v2/chains` |
-| DefiLlama Protocol | secondary api | No | 5m | Bridge TVL and origin split | `https://api.llama.fi/protocol/citrea-bridge` |
-| DefiLlama DEX overview | secondary api | No | 5m | Citrea-wide DEX volume cross-check | `https://api.llama.fi/overview/dexs/citrea` |
-| Citracker Indexed DB | internal index | No | 5m | Indexed bridge flows, swaps, fee enrichment | local Postgres |
-| CoinGecko | secondary api | No | on demand | Historical token and gas pricing | `https://api.coingecko.com/api/v3` |
+| Source | Type | Official | Cadence | Coverage | Confidence | URL |
+|---|---|---:|---|---|---|---|
+| Citrea Explorer API | official api | Yes | 5m | metrics | official truth | `https://explorer.mainnet.citrea.xyz/api/v2` |
+| Citrea Explorer Stats | official api | Yes | 5m | metrics | official truth | `https://explorer.mainnet.citrea.xyz/api/v2/stats` |
+| Citracker Indexed DB | internal index | No | 5m | metrics | derived index | local Postgres |
+| DefiLlama Chains | secondary api | No | 5m | metrics | secondary cross-check | `https://api.llama.fi/v2/chains` |
+| DefiLlama Protocol | secondary api | No | 5m | metrics | secondary cross-check | `https://api.llama.fi/protocol/citrea-bridge` |
+| DefiLlama DEX overview | secondary api | No | 5m | metrics | secondary cross-check | `https://api.llama.fi/overview/dexs/citrea` |
+| CoinGecko | secondary api | No | on demand | metrics | secondary cross-check | `https://api.coingecko.com/api/v3` |
 
 ## Official Citrea References
 
-These are authoritative references, but not all of them are runtime APIs.
+| Source | Type | Coverage | Confidence | URL |
+|---|---|---|---|---|
+| Citrea Docs | official docs | reference | official truth | `https://docs.citrea.xyz/` |
+| Citrea Main Site | official site | reference | official truth | `https://citrea.xyz/` |
+| Citrea Bridge | official ui | reference | official truth | `https://citrea.xyz/bridge` |
+| Citrea App Hub | official ui | reference | official truth | `https://app.citrea.xyz/` |
+| Citrea Batch Explorer | official ui | reference | official truth | `https://citrea.xyz/batch-explorer?page=1&limit=10` |
+| Citrea Origins | official ui | reference | official truth | `https://origins.citrea.xyz/` |
+| Citrea GitHub | official repo | reference | official truth | `https://github.com/chainwayxyz/citrea` |
 
-| Source | Type | API | Purpose | URL |
-|---|---|---:|---|---|
-| Citrea Docs | official docs | No | Chain metadata, canonical contracts, RPC docs | `https://docs.citrea.xyz/` |
-| Citrea Main Site | official site | No | Product and ecosystem reference | `https://citrea.xyz/` |
-| Citrea Bridge | official ui | No confirmed public API | Official bridge surface | `https://citrea.xyz/bridge` |
-| Citrea App Hub | official ui | No confirmed public API | Official app discovery | `https://app.citrea.xyz/` |
-| Citrea Batch Explorer | official ui | No confirmed public API | Bitcoin settlement/batch context | `https://citrea.xyz/batch-explorer?page=1&limit=10` |
-| Citrea Origins | official ui | No confirmed public API | Origin/campaign reference | `https://origins.citrea.xyz/` |
-| Citrea GitHub | official repo | N/A | Protocol/source verification | `https://github.com/chainwayxyz/citrea` |
+## Citrea App Registry
 
-## App-Level APIs And References
+The app registry now lives in `config/citrea-app-registry.json` and can be refreshed from the Citrea app hub with:
 
-These are relevant because Citrea users route through them, but they should only drive runtime logic when the API contract is verified and the metric definition is clear.
+```bash
+npm run sync:citrea-apps
+```
 
-| Source | Type | Public API | Current Use In Citracker | Notes |
-|---|---|---:|---|---|
-| Fibrous Docs | app docs | Yes, documented | Used as integration reference | Citrea router docs and aggregator model are confirmed |
-| Fibrous API | app api | Documented | Not yet used as runtime truth | Base described as `https://api.fibrous.finance/citrea/{version}` in docs |
-| Fibrous GitHub | app repo | N/A | Reference only | Useful for router/integration verification |
-| JuiceSwap Contracts | app contracts | Yes, documented | Already tracked in the swap indexer | JuiceSwap V2/V3 routers and factories are part of current DEX tracking |
-| JuiceSwap Docs | app docs | Yes | Reference only | Citrea-native DEX docs and contract references |
-| Satsuma Exchange | app contracts | Docs/UI available | Already tracked in the swap indexer | Satsuma pools are discovered through the Citrea DEX indexer |
-| Zentra Docs | app docs | Docs available | Not yet used as runtime truth | Lending and borrowing reference for Citrea money markets |
-| Signals Protocol | app docs | Docs available | Not yet used as runtime truth | Prediction-market protocol reference tied to ctUSD flows |
-| Foresight | app docs | Docs available | Not yet used as runtime truth | Citrea-supported prediction market app using ctUSD |
-| Generic Money | app repo | N/A | Reference only | Useful for stable asset and protocol-repo verification |
-| Accountable Capital | app docs | Docs available | Reference only | No confirmed Citrea runtime/API path was verified in this pass |
-| Symbiosis App | app ui | No confirmed primary-source runtime contract in this pass | Reference only | Useful because Citrea users bridge through it |
-| Symbiosis Chains API | app api | Yes | Not yet used as runtime truth | `https://api.symbiosis.finance/crosschain/v1/chains` responded successfully during verification |
-| Namoshi | app ui | No confirmed public API | Reference only | No confirmed Citrea runtime/API path was verified in this pass |
-| Rango Docs | aggregator docs | Docs available | Reference only | Cross-chain aggregator reference, not yet wired into tracker runtime |
-| DFX Toolbox | fiat tooling | UI/docs only | Reference only | No confirmed Citrea runtime/API path was verified in this pass |
+That sync updates app names and URLs without changing backend code.
+
+## Tracked Citrea Apps
+
+| Source | Type | Public API | Status | Coverage | Notes |
+|---|---|---:|---|---|---|
+| Fibrous | aggregator | Docs available | tracked | metrics | Router is already used in wallet fallback and DEX tracking |
+| Juice Swap | dex | Docs available | tracked | metrics | Routers and factories are already indexed |
+| Satsuma | dex | Docs/UI available | tracked | metrics | Factory-driven pool discovery is already indexed |
+| Symbiosis | bridge app | Yes | tracked | registry | App-hub tracked route; not yet merged into wallet/network totals |
+| Atomiq | bridge app | No confirmed public API | tracked | registry | App-hub tracked route; not yet merged into totals |
+| Stargate | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
+| Avail Nexus | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
+| Squid | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
+| Clementine | bridge tooling | Official docs | tracked | registry | Official Citrea bridge tooling reference from the app hub |
+| Zentra | lending | Docs available | tracked | registry | Citrea lending market is tracked in the registry, not totals |
+| Accountable | yield | Docs available | tracked | registry | Vault app is tracked in the registry, not totals |
+| Generic USD | stable asset app | Repo/app available | tracked | registry | Stable asset app is tracked in the registry, not totals |
+| Signals | prediction market | Docs available | tracked | registry | Prediction market app is tracked in the registry, not totals |
+| Foresight | prediction market | Docs available | tracked | registry | Prediction market app is tracked in the registry, not totals |
+| Namoshi | consumer app | No confirmed public API | tracked | registry | App-hub tracked entry; contract/API mapping still needed |
+| Omnihub | creator app | Public app surface | tracked | registry | App-hub tracked entry; contract/API mapping still needed |
+| Rango Exchange | aggregator | Docs available | tracked | registry | App-hub tracked cross-chain aggregator, not yet merged into totals |
+| DFX | fiat tooling | UI/docs available | tracked | registry | App-hub tracked fiat tooling, not yet merged into totals |
 
 ## BTC-Side Reference
 
@@ -68,8 +90,6 @@ These are relevant because Citrea users route through them, but they should only
 | mempool.space | btc api | Yes | BTC-side bridge context and fee environment | `https://mempool.space/` |
 
 ## Manual Analytics References
-
-These should not be treated as runtime truth in the app today.
 
 | Source | Why not runtime today | URL |
 |---|---|---|
@@ -81,6 +101,6 @@ These should not be treated as runtime truth in the app today.
 - Wallet counts and wallet activity: Citrea explorer first, indexed DB second
 - Chain-wide totals: Citrea explorer + DefiLlama + indexed DB
 - Pricing: CoinGecko plus safe symbol mapping
-- Fibrous and Symbiosis: app-level sources to expand later, but not promoted to chain truth until endpoint semantics are pinned
-- JuiceSwap and Satsuma: already reflected through tracked router/factory contracts and DEX indexing
-- Lending, prediction, fiat, and unverified app surfaces: kept in the registry for discovery until their contracts or APIs are pinned
+- JuiceSwap, Satsuma, and Fibrous are already reflected through tracked contracts and wallet/runtime logic
+- The remaining Citrea app-hub entries are now tracked in the registry without backend code edits via the JSON registry plus sync script
+- Bridge, lending, prediction, fiat, and creator apps stay out of wallet/network totals until their contracts or APIs are pinned

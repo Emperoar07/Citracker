@@ -7,6 +7,7 @@
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "db:bootstrap": "node scripts/bootstrapLiveDb.js",
+    "sync:citrea-apps": "node scripts/syncCitreaAppRegistry.js",
     "seed:sample": "node scripts/seedSampleData.js",
     "indexer:bridge": "node src/indexers/bridgeIndexer.js",
     "indexer:dex": "node src/indexers/dexIndexer.js",

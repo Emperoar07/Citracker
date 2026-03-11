@@ -178,10 +178,21 @@ function renderNetworkSummary(payload) {
       const statusClass =
         entry.status === "ok"
           ? "source-ok"
+          : entry.status === "tracked"
+            ? "source-tracked"
           : entry.status === "error"
             ? "source-error"
             : "source-neutral";
-      const meta = [entry.type, entry.cadence, entry.integrated ? "integrated" : "reference"]
+      const meta = [
+        entry.type,
+        entry.cadence,
+        entry.coverage === "metrics"
+          ? "metrics integrated"
+          : entry.coverage === "registry"
+            ? "registry tracked"
+            : "reference",
+        entry.confidence
+      ]
         .filter(Boolean)
         .join(" · ");
       return `

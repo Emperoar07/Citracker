@@ -1,6 +1,7 @@
 import { env } from "../config.js";
 import { getPool } from "../db.js";
 import { resolveTokenUsdPrice } from "./priceService.js";
+import { buildCitreaAppSourceEntries } from "./sourceRegistry.js";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -72,6 +73,8 @@ function buildSourceRegistry(statuses) {
       status: statuses.citreaExplorer,
       type: "official api",
       cadence,
+      coverage: "metrics",
+      confidence: "official truth",
       integrated: true,
       url: env.citreascanApiUrl,
       usage: "Wallet transactions, gas, token transfers, chain stats"
@@ -82,6 +85,8 @@ function buildSourceRegistry(statuses) {
       status: "reference",
       type: "official docs",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "official truth",
       integrated: false,
       url: "https://docs.citrea.xyz/",
       usage: "Chain metadata, contracts, RPC and bridge references"
@@ -92,6 +97,8 @@ function buildSourceRegistry(statuses) {
       status: "reference",
       type: "official ui",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "official truth",
       integrated: false,
       url: "https://citrea.xyz/bridge",
       usage: "Official bridge surface for user-side reference"
@@ -102,6 +109,8 @@ function buildSourceRegistry(statuses) {
       status: "reference",
       type: "official ui",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "official truth",
       integrated: false,
       url: "https://app.citrea.xyz/",
       usage: "Official app discovery surface"
@@ -112,166 +121,21 @@ function buildSourceRegistry(statuses) {
       status: "reference",
       type: "official ui",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "official truth",
       integrated: false,
       url: "https://citrea.xyz/batch-explorer?page=1&limit=10",
       usage: "Batch-level Bitcoin settlement context"
     },
-    {
-      id: "fibrous_api",
-      label: "Fibrous API",
-      status: "documented",
-      type: "app api",
-      cadence: "on demand",
-      integrated: false,
-      url: "https://docs.fibrous.finance/api-reference/introduction",
-      usage: "Aggregator quotes and route surface for Fibrous-powered swaps"
-    },
-    {
-      id: "juiceswap_contracts",
-      label: "JuiceSwap Contracts",
-      status: "tracked",
-      type: "app contracts",
-      cadence,
-      integrated: true,
-      url: "https://docs.juiceswap.com/smart-contracts.html#contract-summary",
-      usage: "JuiceSwap V2/V3 routers, factories and gateway tracked in the swap indexer"
-    },
-    {
-      id: "juiceswap_docs",
-      label: "JuiceSwap Docs",
-      status: "documented",
-      type: "app docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://docs.juiceswap.com/overview.html#what-is-juiceswap",
-      usage: "Citrea-native DEX documentation and contract references"
-    },
-    {
-      id: "satsuma_exchange",
-      label: "Satsuma Exchange",
-      status: "tracked",
-      type: "app contracts",
-      cadence,
-      integrated: true,
-      url: "https://satsuma.exchange/docs",
-      usage: "Satsuma pools are tracked through the Citrea DEX indexer"
-    },
-    {
-      id: "fibrous_docs",
-      label: "Fibrous Docs",
-      status: "reference",
-      type: "app docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://docs.fibrous.finance/essentials/inspiration-for-aggregator",
-      usage: "Fibrous router and integration reference"
-    },
-    {
-      id: "symbiosis_api",
-      label: "Symbiosis API",
-      status: "documented",
-      type: "app api",
-      cadence: "on demand",
-      integrated: false,
-      url: "https://api.symbiosis.finance/crosschain/v1/chains",
-      usage: "Cross-chain routing surface, not yet wired into tracker totals"
-    },
-    {
-      id: "symbiosis_app",
-      label: "Symbiosis App",
-      status: "reference",
-      type: "app ui",
-      cadence: "manual",
-      integrated: false,
-      url: "https://app.symbiosis.finance/swap?amountIn=1&chainIn=Bitcoin&chainOut=Citrea&tokenIn=BTC&tokenOut=CBTC",
-      usage: "User-side bridge and swap interface"
-    },
-    {
-      id: "zentra_docs",
-      label: "Zentra Docs",
-      status: "documented",
-      type: "app docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://zentrafinance.gitbook.io/zentra/",
-      usage: "Citrea money market reference for lending and borrowing activity"
-    },
-    {
-      id: "generic_money",
-      label: "Generic Money",
-      status: "documented",
-      type: "app repo",
-      cadence: "manual",
-      integrated: false,
-      url: "https://github.com/generic-money",
-      usage: "Generic ecosystem repos and stable asset infrastructure referenced across Citrea apps"
-    },
-    {
-      id: "accountable_capital",
-      label: "Accountable Capital",
-      status: "unverified",
-      type: "app docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://docs.accountable.capital/",
-      usage: "Reference only until a confirmed Citrea integration or public API path is identified"
-    },
-    {
-      id: "signals_protocol",
-      label: "Signals Protocol",
-      status: "documented",
-      type: "app docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://docs.signals.wtf/docs/",
-      usage: "Prediction market protocol docs with ctUSD-based on-chain trading mechanics"
-    },
-    {
-      id: "foresight",
-      label: "Foresight",
-      status: "documented",
-      type: "app docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://docs.foresight.now/guides/getting-started/introduction-to-foresight",
-      usage: "Citrea-supported prediction market interface using ctUSD on chain 4114"
-    },
-    {
-      id: "namoshi",
-      label: "Namoshi",
-      status: "unverified",
-      type: "app ui",
-      cadence: "manual",
-      integrated: false,
-      url: "https://app.namoshi.xyz/",
-      usage: "Reference only until a confirmed Citrea integration or public API path is identified"
-    },
-    {
-      id: "rango",
-      label: "Rango",
-      status: "documented",
-      type: "aggregator docs",
-      cadence: "manual",
-      integrated: false,
-      url: "https://docs.rango.exchange/",
-      usage: "Cross-chain aggregator reference; Citrea support not yet wired into tracker runtime totals"
-    },
-    {
-      id: "dfx_toolbox",
-      label: "DFX Toolbox",
-      status: "unverified",
-      type: "fiat tooling",
-      cadence: "manual",
-      integrated: false,
-      url: "https://dfx.swiss/dfx-toolbox.html",
-      usage: "Reference only until a confirmed Citrea-specific integration path is identified"
-    },
+    ...buildCitreaAppSourceEntries(cadence),
     {
       id: "defillama_chain",
       label: "DefiLlama Chain",
       status: statuses.defillamaChain,
       type: "secondary api",
       cadence,
+      coverage: "metrics",
+      confidence: "secondary cross-check",
       integrated: true,
       url: `${env.defillamaApiBase}/v2/chains`,
       usage: "Chain TVL cross-check"
@@ -282,6 +146,8 @@ function buildSourceRegistry(statuses) {
       status: statuses.defillamaBridge,
       type: "secondary api",
       cadence,
+      coverage: "metrics",
+      confidence: "secondary cross-check",
       integrated: true,
       url: `${env.defillamaApiBase}/protocol/${env.defillamaBridgeProtocol}`,
       usage: "Bridge origin and TVL cross-check"
@@ -292,6 +158,8 @@ function buildSourceRegistry(statuses) {
       status: statuses.defillamaDex,
       type: "secondary api",
       cadence,
+      coverage: "metrics",
+      confidence: "secondary cross-check",
       integrated: true,
       url: `${env.defillamaApiBase}/overview/dexs/${encodeURIComponent(env.defillamaChainName.toLowerCase())}`,
       usage: "Chain-wide DEX volume cross-check"
@@ -302,6 +170,8 @@ function buildSourceRegistry(statuses) {
       status: "reference",
       type: "btc api",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "reference only",
       integrated: false,
       url: "https://mempool.space/",
       usage: "BTC-side context around Citrea bridge activity"
@@ -312,6 +182,8 @@ function buildSourceRegistry(statuses) {
       status: statuses.indexed,
       type: "internal index",
       cadence,
+      coverage: "metrics",
+      confidence: "derived index",
       integrated: true,
       url: null,
       usage: "Wallet bridge flows, indexed swaps and fee enrichment"
@@ -322,6 +194,8 @@ function buildSourceRegistry(statuses) {
       status: "manual",
       type: "reference analytics",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "reference only",
       integrated: false,
       url: "https://dune.com/",
       usage: "Potential query-based validation only; not wired without a maintained Citrea query"
@@ -332,6 +206,8 @@ function buildSourceRegistry(statuses) {
       status: "unsupported",
       type: "reference analytics",
       cadence: "manual",
+      coverage: "reference",
+      confidence: "reference only",
       integrated: false,
       url: "https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social",
       usage: "Not integrated for Citrea because official supported-chain docs do not currently list Citrea"
