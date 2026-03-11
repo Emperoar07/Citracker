@@ -90,6 +90,43 @@ async function fetchBlockscoutTransactions({ baseUrl, wallet, startTimestamp, en
   return items;
 }
 
+async function fetchBlockscoutTokenTransfers({ baseUrl, wallet, startTimestamp, endTimestamp, maxItems }) {
+  if (!baseUrl) return [];
+
+  const start = Math.floor(startTimestamp / 1000);
+  const end = Math.floor(endTimestamp / 1000);
+  let nextPageParams = null;
+  let items = [];
+
+  do {
+    const url = new URL(`${baseUrl.replace(/\/$/, "")}/addresses/${wallet}/token-transfers`);
+    if (nextPageParams && typeof nextPageParams === "object") {
+      Object.entries(nextPageParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+          url.searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    const data = await fetchJson(url.toString());
+    const pageItems = Array.isArray(data?.items) ? data.items : [];
+
+    for (const transfer of pageItems) {
+      const ts = Math.floor(new Date(transfer.timestamp).getTime() / 1000);
+      if (Number.isFinite(ts) && ts >= start && ts <= end) {
+        items.push(transfer);
+        if (maxItems && items.length >= maxItems) {
+          return items;
+        }
+      }
+    }
+
+    nextPageParams = data?.next_page_params || null;
+  } while (nextPageParams);
+
+  return items;
+}
+
 async function getTokenMetadata(baseUrl, address) {
   const normalized = normalizeAddress(address);
   if (!normalized || normalized === ZERO_ADDRESS) {
@@ -138,6 +175,33 @@ async function getTrackedDexDestinations() {
 
   trackedDexCache = { value: tracked, loadedAt: now };
   return tracked;
+}
+
+function getTransferAmountDecimal(transfer) {
+  const decimals = Number(transfer?.total?.decimals || transfer?.token?.decimals || 18);
+  const value = transfer?.total?.value || "0";
+  return Number(ethers.formatUnits(value, decimals));
+}
+
+async function buildPricedTransferCandidate(transfer, timestamp) {
+  const symbol = transfer?.token?.symbol || null;
+  if (!symbol) return null;
+
+  const price = await resolveTokenUsdPrice(symbol, timestamp).catch(() => null);
+  if (!price) return null;
+
+  const amount = getTransferAmountDecimal(transfer);
+  return {
+    symbol,
+    amount,
+    usd: amount * price.price
+  };
+}
+
+function maxUsdCandidate(candidates) {
+  const valid = candidates.filter((item) => item && Number.isFinite(item.usd));
+  if (!valid.length) return null;
+  return valid.sort((a, b) => b.usd - a.usd)[0];
 }
 
 function isSwapLikeTransaction(tx, trackedDestinations = STATIC_DEX_DESTINATIONS) {
@@ -261,13 +325,31 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   const startTimestamp = new Date(fromIso).getTime();
   const endTimestamp = new Date(toIso).getTime();
   const limit = Number(options.limit || 20);
+  const walletAddress = normalizeAddress(wallet);
   const trackedDexDestinations = await getTrackedDexDestinations();
-  const transactions = await fetchBlockscoutTransactions({
-    baseUrl: env.citreascanApiUrl,
-    wallet,
-    startTimestamp,
-    endTimestamp
-  });
+  const [transactions, tokenTransfers] = await Promise.all([
+    fetchBlockscoutTransactions({
+      baseUrl: env.citreascanApiUrl,
+      wallet,
+      startTimestamp,
+      endTimestamp
+    }),
+    fetchBlockscoutTokenTransfers({
+      baseUrl: env.citreascanApiUrl,
+      wallet,
+      startTimestamp,
+      endTimestamp
+    })
+  ]);
+
+  const swapTransfersByHash = new Map();
+  for (const transfer of tokenTransfers) {
+    const txHash = String(transfer?.transaction_hash || "").toLowerCase();
+    if (!txHash) continue;
+    const list = swapTransfersByHash.get(txHash) || [];
+    list.push(transfer);
+    swapTransfersByHash.set(txHash, list);
+  }
 
   let gasTotalWei = 0n;
   let gasTotalUsd = 0;
@@ -302,6 +384,32 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       const amountInRaw = findDecodedParam(tx, "amountIn") || "0";
       const amountOutRaw =
         findDecodedParam(tx, "amountOut", "amountOutMinimum", "minAmountOut", "amountOutMin") || "0";
+      const txTransfers = swapTransfersByHash.get(String(tx.hash || "").toLowerCase()) || [];
+      const walletOutTransfers = txTransfers.filter(
+        (transfer) => normalizeAddress(transfer?.from?.hash || transfer?.from) === walletAddress
+      );
+      const walletInTransfers = txTransfers.filter(
+        (transfer) => normalizeAddress(transfer?.to?.hash || transfer?.to) === walletAddress
+      );
+      const [pricedWalletOut, pricedWalletIn] = await Promise.all([
+        Promise.all(walletOutTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp))),
+        Promise.all(walletInTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp)))
+      ]);
+
+      let exactInput = maxUsdCandidate(pricedWalletOut);
+      const exactOutput = maxUsdCandidate(pricedWalletIn);
+
+      if (!exactInput && BigInt(tx?.value || "0") > 0n) {
+        const nativeAmount = Number(ethers.formatEther(tx.value));
+        const nativePrice = await resolveNativeUsdPrice(env.citreaChainId, tx.timestamp).catch(() => null);
+        if (nativePrice) {
+          exactInput = {
+            symbol: "cBTC",
+            amount: nativeAmount,
+            usd: nativeAmount * nativePrice.price
+          };
+        }
+      }
 
       const [tokenInMeta, tokenOutMeta] = await Promise.all([
         getTokenMetadata(env.citreascanApiUrl, tokenInAddress),
@@ -311,14 +419,16 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         resolveTokenUsdPrice(tokenInMeta.symbol, tx.timestamp).catch(() => null),
         resolveTokenUsdPrice(tokenOutMeta.symbol, tx.timestamp).catch(() => null)
       ]);
-      const tokenInAmount = ethers.formatUnits(amountInRaw, tokenInMeta.decimals);
-      const tokenOutAmount = ethers.formatUnits(amountOutRaw, tokenOutMeta.decimals);
-      const swapVolumeUsd =
+      const fallbackInputAmount = Number(ethers.formatUnits(amountInRaw, tokenInMeta.decimals));
+      const fallbackOutputAmount = Number(ethers.formatUnits(amountOutRaw, tokenOutMeta.decimals));
+      const fallbackVolumeUsd =
         tokenInPrice
-          ? Number(tokenInAmount) * tokenInPrice.price
+          ? fallbackInputAmount * tokenInPrice.price
           : tokenOutPrice
-            ? Number(tokenOutAmount) * tokenOutPrice.price
+            ? fallbackOutputAmount * tokenOutPrice.price
             : null;
+
+      const swapVolumeUsd = exactInput?.usd ?? exactOutput?.usd ?? fallbackVolumeUsd;
 
       if (swapVolumeUsd !== null) {
         swapVolumeUsdTotal += swapVolumeUsd;
@@ -327,10 +437,10 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       if (swapItems.length < limit) {
         swapItems.push({
           dex: tx?.to?.name || tx?.method || "swap",
-          token_in: tokenInMeta.symbol,
-          token_out: tokenOutMeta.symbol,
-          token_in_amount: tokenInAmount,
-          token_out_amount: tokenOutAmount,
+          token_in: exactInput?.symbol || tokenInMeta.symbol,
+          token_out: exactOutput?.symbol || tokenOutMeta.symbol,
+          token_in_amount: String(exactInput?.amount ?? fallbackInputAmount),
+          token_out_amount: String(exactOutput?.amount ?? fallbackOutputAmount),
           swap_volume_usd: swapVolumeUsd === null ? null : String(swapVolumeUsd),
           tx_hash: tx.hash,
           block_timestamp: tx.timestamp
