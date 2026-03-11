@@ -119,7 +119,6 @@ function renderNetworkSummary(payload) {
   const cards = [
     ["Indexed Volume (USD)", metrics.total_activity_volume_usd],
     ["Indexed Inflow (USD)", metrics.total_inflow_usd],
-    ["Indexed Outflow (USD)", metrics.total_outflow_usd],
     ["Citrea TVL (USD)", metrics.chain_tvl_usd],
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
     ["Users", metrics.total_users],
