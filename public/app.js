@@ -20,6 +20,14 @@ const tokenSpendTbody = document.querySelector("#tokenSpendTable tbody");
 let walletChart;
 let networkPollHandle = null;
 
+function friendlyErrorMessage(message, fallback) {
+  if (!message) return fallback;
+  if (message.includes("DATABASE_URL is required")) {
+    return "Indexed wallet database is not connected yet. Chain-wide live metrics are available, but wallet-level totals need the Postgres index.";
+  }
+  return message;
+}
+
 async function fetchJsonOrThrow(url) {
   const response = await fetch(url);
   const text = await response.text();
@@ -258,7 +266,12 @@ function renderNetworkSummary(payload) {
     ? `Explorer gas update ${new Date(metrics.gas_price_updated_at).toLocaleTimeString()}`
     : "Explorer gas update unavailable";
   networkLiveLabelEl.textContent = `Polling every ${Math.max(Math.round(payload.refresh_ms / 1000), 1)}s`;
-  setNetworkStatus(payload.errors.length ? payload.errors.join(" | ") : "Citrea mainnet panel synced.", payload.errors.length > 0);
+  const statusText = payload.errors.length
+    ? friendlyErrorMessage(payload.errors.join(" | "), "Citrea mainnet panel synced.")
+    : "Citrea mainnet panel synced.";
+  const isOnlyIndexedDbGap =
+    payload.errors.length === 1 && payload.errors[0].includes("DATABASE_URL is required");
+  setNetworkStatus(statusText, payload.errors.length > 0 && !isOnlyIndexedDbGap);
 }
 
 async function loadWalletData() {
@@ -285,7 +298,7 @@ async function loadWalletData() {
 
     setStatus(`Loaded all-time totals for ${wallet}.`);
   } catch (error) {
-    setStatus(error.message || "Failed to load wallet data.", true);
+    setStatus(friendlyErrorMessage(error.message, "Failed to load wallet data."), true);
   }
 }
 
@@ -295,7 +308,7 @@ async function loadNetworkData() {
     renderNetworkSummary(payload);
     scheduleNetworkPolling(payload.refresh_ms || 60000);
   } catch (error) {
-    setNetworkStatus(error.message || "Failed to load Citrea mainnet panel.", true);
+    setNetworkStatus(friendlyErrorMessage(error.message, "Failed to load Citrea mainnet panel."), true);
     scheduleNetworkPolling(60000);
   }
 }
