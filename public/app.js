@@ -12,7 +12,6 @@ const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
 const sourceHealthEl = document.getElementById("sourceHealth");
 const bridgePanelEl = document.getElementById("bridgePanel");
-const tokenSpendTbody = document.querySelector("#tokenSpendTable tbody");
 
 let networkPollHandle = null;
 
@@ -96,10 +95,6 @@ function renderSummaryPanel(element, stats) {
     .join("");
 }
 
-function fillRows(tbody, rowsHtml, colspan) {
-  tbody.innerHTML = rowsHtml || `<tr><td colspan="${colspan}">No data</td></tr>`;
-}
-
 function renderWalletPanels(summary) {
   renderSummaryPanel(bridgePanelEl, [
     ["Total Transactions", number(summary.bridge.tx_count, 0)],
@@ -115,16 +110,12 @@ function renderNetworkSummary(payload) {
     ["Indexed Volume (USD)", metrics.total_activity_volume_usd],
     ["Indexed Inflow (USD)", metrics.total_inflow_usd],
     ["Indexed Outflow (USD)", metrics.total_outflow_usd],
-    ["Indexed Netflow (USD)", metrics.netflow_usd],
     ["Citrea TVL (USD)", metrics.chain_tvl_usd],
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
     ["Users", metrics.total_users],
     ["Transactions", metrics.total_transactions],
     ["Tx Today", metrics.transactions_today],
-    ["DEX 24h (USD)", metrics.dex_volume_24h_usd],
-    ["All Token Spend (USD)", metrics.overall_token_spent_usd],
-    ["Gas Spent (USD)", metrics.total_gas_spent_usd],
-    ["Swap Count", metrics.total_swap_count]
+    ["DEX 24h (USD)", metrics.dex_volume_24h_usd]
   ];
 
   networkKpisEl.innerHTML = cards
@@ -164,19 +155,6 @@ function renderNetworkSummary(payload) {
         <span class="metric-value ${status === "ok" ? "source-ok" : "source-error"}">${status}</span>
       </div>`)
     .join("");
-
-  fillRows(
-    tokenSpendTbody,
-    metrics.token_spend_breakdown
-      .map((item) => `
-        <tr>
-          <td>${item.token}</td>
-          <td>${number(item.amount_spent)}</td>
-          <td>${money(item.amount_spent_usd)}</td>
-        </tr>`)
-      .join(""),
-    3
-  );
 
   networkUpdatedAtEl.textContent = `Updated ${new Date(payload.updated_at).toLocaleString()}`;
   gasPriceUpdatedAtEl.textContent = metrics.gas_price_updated_at
