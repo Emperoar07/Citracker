@@ -420,11 +420,6 @@ button {
   gap: 10px;
 }
 
-#dexPanel,
-#gasPanel {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .summary-stat {
   display: grid;
   gap: 8px;
@@ -582,9 +577,7 @@ tbody tr:last-child td {
   .kpis,
   .network-kpis,
   .gas-banner-metrics,
-  .summary-grid,
-  #dexPanel,
-  #gasPanel {
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 

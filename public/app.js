@@ -12,8 +12,6 @@ const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
 const sourceHealthEl = document.getElementById("sourceHealth");
 const bridgePanelEl = document.getElementById("bridgePanel");
-const dexPanelEl = document.getElementById("dexPanel");
-const gasPanelEl = document.getElementById("gasPanel");
 const tokenSpendTbody = document.querySelector("#tokenSpendTable tbody");
 
 let networkPollHandle = null;
@@ -46,11 +44,6 @@ async function fetchJsonOrThrow(url) {
   }
 
   return payload;
-}
-
-function shortHash(hash) {
-  if (!hash) return "-";
-  return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
 }
 
 function money(value) {
@@ -117,16 +110,6 @@ function renderWalletPanels(summary) {
     ["In Volume (USDT)", money(summary.bridge.inflow_usd)],
     ["Out Volume (USDT)", money(summary.bridge.outflow_usd)],
     ["Total Value (USDT)", money(summary.bridge.volume_usd)]
-  ]);
-
-  renderSummaryPanel(dexPanelEl, [
-    ["Total Transactions", number(summary.dex.swap_count, 0)],
-    ["Total Value (USDT)", money(summary.dex.swap_volume_usd)]
-  ]);
-
-  renderSummaryPanel(gasPanelEl, [
-    ["Total Transactions", number(summary.gas.tx_count, 0)],
-    ["Total Value (USDT)", money(summary.gas.total_usd)]
   ]);
 }
 
