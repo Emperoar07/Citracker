@@ -47,8 +47,19 @@ These are relevant because Citrea users route through them, but they should only
 | Fibrous Docs | app docs | Yes, documented | Used as integration reference | Citrea router docs and aggregator model are confirmed |
 | Fibrous API | app api | Documented | Not yet used as runtime truth | Base described as `https://api.fibrous.finance/citrea/{version}` in docs |
 | Fibrous GitHub | app repo | N/A | Reference only | Useful for router/integration verification |
+| JuiceSwap Contracts | app contracts | Yes, documented | Already tracked in the swap indexer | JuiceSwap V2/V3 routers and factories are part of current DEX tracking |
+| JuiceSwap Docs | app docs | Yes | Reference only | Citrea-native DEX docs and contract references |
+| Satsuma Exchange | app contracts | Docs/UI available | Already tracked in the swap indexer | Satsuma pools are discovered through the Citrea DEX indexer |
+| Zentra Docs | app docs | Docs available | Not yet used as runtime truth | Lending and borrowing reference for Citrea money markets |
+| Signals Protocol | app docs | Docs available | Not yet used as runtime truth | Prediction-market protocol reference tied to ctUSD flows |
+| Foresight | app docs | Docs available | Not yet used as runtime truth | Citrea-supported prediction market app using ctUSD |
+| Generic Money | app repo | N/A | Reference only | Useful for stable asset and protocol-repo verification |
+| Accountable Capital | app docs | Docs available | Reference only | No confirmed Citrea runtime/API path was verified in this pass |
 | Symbiosis App | app ui | No confirmed primary-source runtime contract in this pass | Reference only | Useful because Citrea users bridge through it |
 | Symbiosis Chains API | app api | Yes | Not yet used as runtime truth | `https://api.symbiosis.finance/crosschain/v1/chains` responded successfully during verification |
+| Namoshi | app ui | No confirmed public API | Reference only | No confirmed Citrea runtime/API path was verified in this pass |
+| Rango Docs | aggregator docs | Docs available | Reference only | Cross-chain aggregator reference, not yet wired into tracker runtime |
+| DFX Toolbox | fiat tooling | UI/docs only | Reference only | No confirmed Citrea runtime/API path was verified in this pass |
 
 ## BTC-Side Reference
 
@@ -71,3 +82,5 @@ These should not be treated as runtime truth in the app today.
 - Chain-wide totals: Citrea explorer + DefiLlama + indexed DB
 - Pricing: CoinGecko plus safe symbol mapping
 - Fibrous and Symbiosis: app-level sources to expand later, but not promoted to chain truth until endpoint semantics are pinned
+- JuiceSwap and Satsuma: already reflected through tracked router/factory contracts and DEX indexing
+- Lending, prediction, fiat, and unverified app surfaces: kept in the registry for discovery until their contracts or APIs are pinned

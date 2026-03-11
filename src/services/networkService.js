@@ -127,6 +127,36 @@ function buildSourceRegistry(statuses) {
       usage: "Aggregator quotes and route surface for Fibrous-powered swaps"
     },
     {
+      id: "juiceswap_contracts",
+      label: "JuiceSwap Contracts",
+      status: "tracked",
+      type: "app contracts",
+      cadence,
+      integrated: true,
+      url: "https://docs.juiceswap.com/smart-contracts.html#contract-summary",
+      usage: "JuiceSwap V2/V3 routers, factories and gateway tracked in the swap indexer"
+    },
+    {
+      id: "juiceswap_docs",
+      label: "JuiceSwap Docs",
+      status: "documented",
+      type: "app docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.juiceswap.com/overview.html#what-is-juiceswap",
+      usage: "Citrea-native DEX documentation and contract references"
+    },
+    {
+      id: "satsuma_exchange",
+      label: "Satsuma Exchange",
+      status: "tracked",
+      type: "app contracts",
+      cadence,
+      integrated: true,
+      url: "https://satsuma.exchange/docs",
+      usage: "Satsuma pools are tracked through the Citrea DEX indexer"
+    },
+    {
       id: "fibrous_docs",
       label: "Fibrous Docs",
       status: "reference",
@@ -155,6 +185,86 @@ function buildSourceRegistry(statuses) {
       integrated: false,
       url: "https://app.symbiosis.finance/swap?amountIn=1&chainIn=Bitcoin&chainOut=Citrea&tokenIn=BTC&tokenOut=CBTC",
       usage: "User-side bridge and swap interface"
+    },
+    {
+      id: "zentra_docs",
+      label: "Zentra Docs",
+      status: "documented",
+      type: "app docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://zentrafinance.gitbook.io/zentra/",
+      usage: "Citrea money market reference for lending and borrowing activity"
+    },
+    {
+      id: "generic_money",
+      label: "Generic Money",
+      status: "documented",
+      type: "app repo",
+      cadence: "manual",
+      integrated: false,
+      url: "https://github.com/generic-money",
+      usage: "Generic ecosystem repos and stable asset infrastructure referenced across Citrea apps"
+    },
+    {
+      id: "accountable_capital",
+      label: "Accountable Capital",
+      status: "unverified",
+      type: "app docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.accountable.capital/",
+      usage: "Reference only until a confirmed Citrea integration or public API path is identified"
+    },
+    {
+      id: "signals_protocol",
+      label: "Signals Protocol",
+      status: "documented",
+      type: "app docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.signals.wtf/docs/",
+      usage: "Prediction market protocol docs with ctUSD-based on-chain trading mechanics"
+    },
+    {
+      id: "foresight",
+      label: "Foresight",
+      status: "documented",
+      type: "app docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.foresight.now/guides/getting-started/introduction-to-foresight",
+      usage: "Citrea-supported prediction market interface using ctUSD on chain 4114"
+    },
+    {
+      id: "namoshi",
+      label: "Namoshi",
+      status: "unverified",
+      type: "app ui",
+      cadence: "manual",
+      integrated: false,
+      url: "https://app.namoshi.xyz/",
+      usage: "Reference only until a confirmed Citrea integration or public API path is identified"
+    },
+    {
+      id: "rango",
+      label: "Rango",
+      status: "documented",
+      type: "aggregator docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.rango.exchange/",
+      usage: "Cross-chain aggregator reference; Citrea support not yet wired into tracker runtime totals"
+    },
+    {
+      id: "dfx_toolbox",
+      label: "DFX Toolbox",
+      status: "unverified",
+      type: "fiat tooling",
+      cadence: "manual",
+      integrated: false,
+      url: "https://dfx.swiss/dfx-toolbox.html",
+      usage: "Reference only until a confirmed Citrea-specific integration path is identified"
     },
     {
       id: "defillama_chain",
