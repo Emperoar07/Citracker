@@ -2,6 +2,7 @@ import { env } from "../config.js";
 import { ethers } from "ethers";
 import { getPool } from "../db.js";
 import { resolveNativeUsdPrice, resolveTokenUsdPrice } from "./priceService.js";
+import { getCitreaMetricAppConfigs } from "./sourceRegistry.js";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -32,6 +33,8 @@ const STATIC_DEX_DESTINATIONS = new Set([
 ]);
 const STATIC_ROUTER_DESTINATIONS = new Set(STATIC_DEX_DESTINATIONS);
 let trackedDexCache = { value: null, loadedAt: 0 };
+let trackedAppCache = { value: null, loadedAt: 0 };
+const transactionTransferCache = new Map();
 
 function shortAddress(address) {
   if (!address || typeof address !== "string") return "-";
@@ -128,6 +131,24 @@ async function fetchBlockscoutTokenTransfers({ baseUrl, wallet, startTimestamp, 
   return items;
 }
 
+async function fetchTransactionTokenTransfers({ baseUrl, txHash }) {
+  const normalizedHash = String(txHash || "").toLowerCase();
+  if (!normalizedHash) return [];
+  if (transactionTransferCache.has(normalizedHash)) {
+    return transactionTransferCache.get(normalizedHash);
+  }
+
+  try {
+    const data = await fetchJson(`${baseUrl.replace(/\/$/, "")}/transactions/${normalizedHash}/token-transfers`);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    transactionTransferCache.set(normalizedHash, items);
+    return items;
+  } catch {
+    transactionTransferCache.set(normalizedHash, []);
+    return [];
+  }
+}
+
 async function getTokenMetadata(baseUrl, address) {
   const normalized = normalizeAddress(address);
   if (!normalized || normalized === ZERO_ADDRESS) {
@@ -184,6 +205,61 @@ async function getTrackedDexDestinations() {
   return trackedDexCache.value;
 }
 
+async function verifySymbiosisChainSupport(config) {
+  const url = config?.api?.chainsUrl;
+  if (!url) return true;
+
+  try {
+    const data = await fetchJson(url);
+    const chains = Array.isArray(data) ? data : [];
+    return chains.some((chain) => Number(chain?.id) === env.citreaChainId);
+  } catch {
+    return false;
+  }
+}
+
+async function getTrackedMetricApps() {
+  const now = Date.now();
+  if (trackedAppCache.value && now - trackedAppCache.loadedAt < 300_000) {
+    return trackedAppCache.value;
+  }
+
+  const configs = getCitreaMetricAppConfigs();
+  const verifiedConfigs = await Promise.all(
+    configs.map(async (config) => {
+      if (config.id !== "symbiosis") return config;
+      const supported = await verifySymbiosisChainSupport(config);
+      return supported ? config : null;
+    })
+  );
+
+  const activeApps = verifiedConfigs.filter(Boolean);
+  const byAddress = new Map();
+
+  for (const app of activeApps) {
+    for (const entry of app?.walletMetrics?.addresses || []) {
+      const normalized = normalizeAddress(entry.address);
+      if (!normalized) continue;
+      byAddress.set(normalized, {
+        id: app.id,
+        label: app.label,
+        category: app?.walletMetrics?.category || "app",
+        role: entry.role || "contract",
+        address: normalized
+      });
+    }
+  }
+
+  trackedAppCache = {
+    value: {
+      apps: activeApps,
+      byAddress
+    },
+    loadedAt: now
+  };
+  return trackedAppCache.value;
+}
+
 function getTransferAmountDecimal(transfer) {
   const decimals = Number(transfer?.total?.decimals || transfer?.token?.decimals || 18);
   const value = transfer?.total?.value || "0";
@@ -209,6 +285,41 @@ function maxUsdCandidate(candidates) {
   const valid = candidates.filter((item) => item && Number.isFinite(item.usd));
   if (!valid.length) return null;
   return valid.sort((a, b) => b.usd - a.usd)[0];
+}
+
+async function getWalletTransferCandidatesUsd(walletOutTransfers, walletInTransfers, timestamp, nativeValue) {
+  const [pricedWalletOut, pricedWalletIn] = await Promise.all([
+    Promise.all(walletOutTransfers.map((transfer) => buildPricedTransferCandidate(transfer, timestamp))),
+    Promise.all(walletInTransfers.map((transfer) => buildPricedTransferCandidate(transfer, timestamp)))
+  ]);
+
+  let nativeCandidate = null;
+  if (BigInt(nativeValue || "0") > 0n) {
+    const nativeAmount = Number(ethers.formatEther(nativeValue));
+    const nativePrice = await resolveNativeUsdPrice(env.citreaChainId, timestamp).catch(() => null);
+    if (nativePrice) {
+      nativeCandidate = {
+        symbol: "cBTC",
+        amount: nativeAmount,
+        usd: nativeAmount * nativePrice.price
+      };
+    }
+  }
+
+  return {
+    out: maxUsdCandidate(pricedWalletOut),
+    in: maxUsdCandidate(pricedWalletIn),
+    native: nativeCandidate
+  };
+}
+
+function getBestVolumeCandidate(candidates) {
+  return maxUsdCandidate([candidates?.out, candidates?.in, candidates?.native]);
+}
+
+async function getTransactionTransferCandidatesUsd(txTransfers, timestamp) {
+  const pricedTransfers = await Promise.all(txTransfers.map((transfer) => buildPricedTransferCandidate(transfer, timestamp)));
+  return maxUsdCandidate(pricedTransfers);
 }
 
 function hasSwapKeyword(tx) {
@@ -270,6 +381,45 @@ function getSwapClassification(
     hasNativeInput,
     methodHasSwapKeyword,
     routerOneSidedSwap
+  };
+}
+
+function getAppClassification(tx, walletAddress, txTransfers, trackedApps) {
+  const destination =
+    normalizeAddress(tx?.to?.hash) ||
+    normalizeAddress(tx?.to);
+  const app = trackedApps?.byAddress?.get(destination);
+
+  if (!app) {
+    return {
+      isAppActivity: false,
+      destination,
+      app: null,
+      walletOutTransfers: [],
+      walletInTransfers: [],
+      hasNativeInput: false
+    };
+  }
+
+  const walletOutTransfers = txTransfers.filter(
+    (transfer) => normalizeAddress(transfer?.from?.hash || transfer?.from) === walletAddress
+  );
+  const walletInTransfers = txTransfers.filter(
+    (transfer) => normalizeAddress(transfer?.to?.hash || transfer?.to) === walletAddress
+  );
+  const hasNativeInput = BigInt(tx?.value || "0") > 0n;
+  const types = Array.isArray(tx?.transaction_types) ? tx.transaction_types : [];
+  const isContractCall = types.includes("contract_call");
+  const isAppActivity = walletOutTransfers.length > 0 || walletInTransfers.length > 0 || hasNativeInput || isContractCall;
+
+  return {
+    isAppActivity,
+    destination,
+    app,
+    walletOutTransfers,
+    walletInTransfers,
+    hasNativeInput,
+    isContractCall
   };
 }
 
@@ -373,9 +523,12 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       enabled: false,
       tx_count: 0,
       swap_count: 0,
+      app_tx_count: 0,
       gas_total_native: "0",
       gas_total_usd: "0",
       swap_volume_usd_total: "0",
+      app_volume_usd_total: "0",
+      app_breakdown: [],
       gas_items: [],
       swap_items: []
     };
@@ -386,6 +539,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   const limit = Number(options.limit || 20);
   const walletAddress = normalizeAddress(wallet);
   const trackedDexDestinations = await getTrackedDexDestinations();
+  const trackedMetricApps = await getTrackedMetricApps();
   const [transactions, tokenTransfers] = await Promise.all([
     fetchBlockscoutTransactions({
       baseUrl: env.citreascanApiUrl,
@@ -413,7 +567,10 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   let gasTotalWei = 0n;
   let gasTotalUsd = 0;
   let swapVolumeUsdTotal = 0;
+  let appVolumeUsdTotal = 0;
   let swapCount = 0;
+  let appTxCount = 0;
+  const appBreakdown = new Map();
   const gasItems = [];
   const swapItems = [];
 
@@ -422,6 +579,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
     gasTotalWei += feeWei;
     const txTransfers = swapTransfersByHash.get(String(tx.hash || "").toLowerCase()) || [];
     const classification = getSwapClassification(tx, walletAddress, txTransfers, trackedDexDestinations);
+    const appClassification = getAppClassification(tx, walletAddress, txTransfers, trackedMetricApps);
     const gasUsdPrice = await resolveNativeUsdPrice(env.citreaChainId, tx.timestamp).catch(() => null);
     if (gasUsdPrice) {
       gasTotalUsd += Number(ethers.formatEther(feeWei)) * gasUsdPrice.price;
@@ -447,25 +605,14 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       const amountInRaw = findDecodedParam(tx, "amountIn") || "0";
       const amountOutRaw =
         findDecodedParam(tx, "amountOut", "amountOutMinimum", "minAmountOut", "amountOutMin") || "0";
-      const [pricedWalletOut, pricedWalletIn] = await Promise.all([
-        Promise.all(classification.walletOutTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp))),
-        Promise.all(classification.walletInTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp)))
-      ]);
-
-      let exactInput = maxUsdCandidate(pricedWalletOut);
-      const exactOutput = maxUsdCandidate(pricedWalletIn);
-
-      if (!exactInput && classification.hasNativeInput) {
-        const nativeAmount = Number(ethers.formatEther(tx.value));
-        const nativePrice = await resolveNativeUsdPrice(env.citreaChainId, tx.timestamp).catch(() => null);
-        if (nativePrice) {
-          exactInput = {
-            symbol: "cBTC",
-            amount: nativeAmount,
-            usd: nativeAmount * nativePrice.price
-          };
-        }
-      }
+      const transferCandidates = await getWalletTransferCandidatesUsd(
+        classification.walletOutTransfers,
+        classification.walletInTransfers,
+        tx.timestamp,
+        tx.value
+      );
+      const exactInput = transferCandidates.out ?? transferCandidates.native;
+      const exactOutput = transferCandidates.in;
 
       const [tokenInMeta, tokenOutMeta] = await Promise.all([
         getTokenMetadata(env.citreascanApiUrl, tokenInAddress),
@@ -503,15 +650,50 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         });
       }
     }
+
+    if (appClassification.isAppActivity && !classification.isSwap) {
+      appTxCount += 1;
+      const transferCandidates = await getWalletTransferCandidatesUsd(
+        appClassification.walletOutTransfers,
+        appClassification.walletInTransfers,
+        tx.timestamp,
+        tx.value
+      );
+      let appVolumeCandidate = getBestVolumeCandidate(transferCandidates) ||
+        (await getTransactionTransferCandidatesUsd(txTransfers, tx.timestamp));
+      if (!appVolumeCandidate) {
+        const fullTxTransfers = await fetchTransactionTokenTransfers({
+          baseUrl: env.citreascanApiUrl,
+          txHash: tx.hash
+        });
+        appVolumeCandidate = await getTransactionTransferCandidatesUsd(fullTxTransfers, tx.timestamp);
+      }
+      const appVolumeUsd = Number(appVolumeCandidate?.usd || 0);
+
+      appVolumeUsdTotal += appVolumeUsd;
+      const existing = appBreakdown.get(appClassification.app.id) || {
+        id: appClassification.app.id,
+        label: appClassification.app.label,
+        category: appClassification.app.category,
+        tx_count: 0,
+        volume_usd: 0
+      };
+      existing.tx_count += 1;
+      existing.volume_usd += appVolumeUsd;
+      appBreakdown.set(appClassification.app.id, existing);
+    }
   }
 
   return {
     enabled: true,
     tx_count: transactions.length,
     swap_count: swapCount,
+    app_tx_count: appTxCount,
     gas_total_native: ethers.formatEther(gasTotalWei),
     gas_total_usd: String(gasTotalUsd),
     swap_volume_usd_total: String(swapVolumeUsdTotal),
+    app_volume_usd_total: String(appVolumeUsdTotal),
+    app_breakdown: [...appBreakdown.values()].sort((a, b) => b.volume_usd - a.volume_usd),
     gas_items: gasItems,
     swap_items: swapItems
   };

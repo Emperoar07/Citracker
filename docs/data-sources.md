@@ -60,6 +60,8 @@ npm run sync:citrea-apps
 
 That sync updates app names and URLs without changing backend code.
 
+Pinned per-app metrics configs now live under `config/apps/` for apps that have graduated from registry-only tracking into wallet metrics.
+
 ## Tracked Citrea Apps
 
 | Source | Type | Public API | Status | Coverage | Notes |
@@ -67,17 +69,17 @@ That sync updates app names and URLs without changing backend code.
 | Fibrous | aggregator | Docs available | tracked | metrics | Router is already used in wallet fallback and DEX tracking |
 | Juice Swap | dex | Docs available | tracked | metrics | Routers and factories are already indexed |
 | Satsuma | dex | Docs/UI available | tracked | metrics | Factory-driven pool discovery is already indexed |
-| Symbiosis | bridge app | Yes | tracked | registry | App-hub tracked route; not yet merged into wallet/network totals |
+| Symbiosis | bridge app | Yes | ok | metrics | Citrea contracts and official chain API are pinned in `config/apps/symbiosis.json` |
 | Atomiq | bridge app | No confirmed public API | tracked | registry | App-hub tracked route; not yet merged into totals |
 | Stargate | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
 | Avail Nexus | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
 | Squid | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
 | Clementine | bridge tooling | Official docs | tracked | registry | Official Citrea bridge tooling reference from the app hub |
-| Zentra | lending | Docs available | tracked | registry | Citrea lending market is tracked in the registry, not totals |
+| Zentra | lending | Docs available | ok | metrics | Citrea pool/configurator contracts are pinned in `config/apps/zentra.json` |
 | Accountable | yield | Docs available | tracked | registry | Vault app is tracked in the registry, not totals |
 | Generic USD | stable asset app | Repo/app available | tracked | registry | Stable asset app is tracked in the registry, not totals |
-| Signals | prediction market | Docs available | tracked | registry | Prediction market app is tracked in the registry, not totals |
-| Foresight | prediction market | Docs available | tracked | registry | Prediction market app is tracked in the registry, not totals |
+| Signals | prediction market | Docs available | ok | metrics | Citrea MarketCore contract is pinned in `config/apps/signals.json` |
+| Foresight | prediction market | Docs available | ok | metrics | Citrea launchpad contract is pinned in `config/apps/foresight.json` |
 | Namoshi | consumer app | No confirmed public API | tracked | registry | App-hub tracked entry; contract/API mapping still needed |
 | Omnihub | creator app | Public app surface | tracked | registry | App-hub tracked entry; contract/API mapping still needed |
 | Rango Exchange | aggregator | Docs available | tracked | registry | App-hub tracked cross-chain aggregator, not yet merged into totals |
@@ -103,4 +105,5 @@ That sync updates app names and URLs without changing backend code.
 - Pricing: CoinGecko plus safe symbol mapping
 - JuiceSwap, Satsuma, and Fibrous are already reflected through tracked contracts and wallet/runtime logic
 - The remaining Citrea app-hub entries are now tracked in the registry without backend code edits via the JSON registry plus sync script
-- Bridge, lending, prediction, fiat, and creator apps stay out of wallet/network totals until their contracts or APIs are pinned
+- Symbiosis, Zentra, Signals, and Foresight now contribute to wallet totals through pinned Citrea contracts and app-specific fallback logic
+- Bridge, fiat, creator, and remaining app-hub entries stay out of totals until their contracts or APIs are pinned

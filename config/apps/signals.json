@@ -1,0 +1,36 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Wallet totals include Signals market activity via pinned Citrea contracts and explorer transfer flow."
+  },
+  "api": {
+    "subgraphUrl": "https://api.goldsky.com/api/public/project_cme6kru6aowuy01tb4c9xbdrj/subgraphs/signals-v1-citrea-prod/latest/gn"
+  },
+  "walletMetrics": {
+    "mode": "destination-address",
+    "category": "prediction",
+    "addresses": [
+      {
+        "address": "0x516312275875932ec2B53A41df4De02743131729",
+        "role": "market_core",
+        "label": "Signals MarketCore"
+      }
+    ]
+  },
+  "tokens": [
+    {
+      "symbol": "ctUSD",
+      "address": "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D",
+      "decimals": 18
+    }
+  ],
+  "contracts": [
+    "0x516312275875932ec2B53A41df4De02743131729"
+  ]
+}

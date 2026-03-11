@@ -15,6 +15,11 @@ export function coerceSummaryPayload(dbSummary) {
       swap_volume_usd: toDecimalString(dbSummary.dex_swap_volume_usd),
       swap_count: Number(dbSummary.dex_swap_count || 0)
     },
+    apps: {
+      tx_count: Number(dbSummary.app_tx_count || 0),
+      volume_usd: toDecimalString(dbSummary.app_volume_usd),
+      breakdown: Array.isArray(dbSummary.app_breakdown) ? dbSummary.app_breakdown : []
+    },
     gas: {
       tx_count: Number(dbSummary.gas_tx_count || 0),
       l1_native: toDecimalString(dbSummary.gas_l1_native),

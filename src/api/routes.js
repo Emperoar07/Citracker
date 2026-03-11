@@ -87,8 +87,18 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
         Number(base.dex.swap_count || 0),
         Number(citreaFallback.swap_count || 0)
       );
+      base.apps.tx_count = Math.max(
+        Number(base.apps.tx_count || 0),
+        Number(citreaFallback.app_tx_count || 0)
+      );
       if (Number(citreaFallback.swap_volume_usd_total || 0) > Number(base.dex.swap_volume_usd || 0)) {
         base.dex.swap_volume_usd = String(citreaFallback.swap_volume_usd_total || "0");
+      }
+      if (Number(citreaFallback.app_volume_usd_total || 0) > Number(base.apps.volume_usd || 0)) {
+        base.apps.volume_usd = String(citreaFallback.app_volume_usd_total || "0");
+      }
+      if (Array.isArray(citreaFallback.app_breakdown) && citreaFallback.app_breakdown.length > 0) {
+        base.apps.breakdown = citreaFallback.app_breakdown;
       }
       if (Number(citreaFallback.gas_total_native || 0) > Number(base.gas.l2_native || 0)) {
         base.gas.l2_native = String(citreaFallback.gas_total_native || "0");
@@ -97,7 +107,9 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
         base.gas.total_usd = String(citreaFallback.gas_total_usd || "0");
       }
       base.total_activity_volume_usd = String(
-        Number(base.bridge.volume_usd || 0) + Number(base.dex.swap_volume_usd || 0)
+        Number(base.bridge.volume_usd || 0) +
+          Number(base.dex.swap_volume_usd || 0) +
+          Number(base.apps.volume_usd || 0)
       );
     }
 

@@ -1,0 +1,61 @@
+{
+  "id": "zentra",
+  "label": "Zentra",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Wallet totals include Zentra lending activity via pinned Citrea pool and configurator contracts."
+  },
+  "walletMetrics": {
+    "mode": "destination-address",
+    "category": "lending",
+    "addresses": [
+      {
+        "address": "0xfb7908150b738e7dB9862007c66C9eb7850706F5",
+        "role": "pool",
+        "label": "Zentra Pool"
+      },
+      {
+        "address": "0x4C851B65B85aF26959C1023017f5F8D310D33CDf",
+        "role": "pool_addresses_provider",
+        "label": "Zentra PoolAddressesProvider"
+      },
+      {
+        "address": "0x6864042da4A5BBEb2a98e910599964C9d8B7B684",
+        "role": "pool_configurator",
+        "label": "Zentra PoolConfigurator"
+      },
+      {
+        "address": "0xd8A09eEf673e877C0eD4ac5caEa6f935D5158144",
+        "role": "oracle",
+        "label": "Zentra Oracle"
+      }
+    ]
+  },
+  "tokens": [
+    {
+      "symbol": "ctUSD",
+      "address": "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D",
+      "decimals": 18
+    },
+    {
+      "symbol": "USDC.e",
+      "address": "0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839",
+      "decimals": 6
+    },
+    {
+      "symbol": "wcBTC",
+      "address": "0x3100000000000000000000000000000000000006",
+      "decimals": 18
+    }
+  ],
+  "contracts": [
+    "0xfb7908150b738e7dB9862007c66C9eb7850706F5",
+    "0x4C851B65B85aF26959C1023017f5F8D310D33CDf",
+    "0x6864042da4A5BBEb2a98e910599964C9d8B7B684",
+    "0xd8A09eEf673e877C0eD4ac5caEa6f935D5158144"
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "id": "symbiosis",
+  "label": "Symbiosis",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "confidence": "official api + pinned contracts",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Wallet totals include Symbiosis Citrea bridge and route activity via pinned Citrea contracts and official chain API."
+  },
+  "api": {
+    "chainsUrl": "https://api.symbiosis.finance/crosschain/v1/chains",
+    "forwarderUrl": "https://btc-forwarder.symbiosis.finance/citrea/forwarder/api/v1"
+  },
+  "walletMetrics": {
+    "mode": "destination-address",
+    "category": "bridge",
+    "addresses": [
+      {
+        "address": "0xcE8f24A58D85eD5c5A6824f7be1F8d4711A0eb4C",
+        "role": "meta_router",
+        "label": "Symbiosis MetaRouter"
+      },
+      {
+        "address": "0xAdB2d3b711Bb8d8Ea92ff70292c466140432c278",
+        "role": "meta_router_gateway",
+        "label": "Symbiosis MetaRouterGateway"
+      },
+      {
+        "address": "0x5523985926Aa12BA58DC5Ad00DDca99678D7227E",
+        "role": "bridge",
+        "label": "Symbiosis Bridge"
+      },
+      {
+        "address": "0x5Aa5f7f84eD0E5db0a4a85C3947eA16B53352FD4",
+        "role": "synthesis",
+        "label": "Symbiosis Synthesis"
+      },
+      {
+        "address": "0xf1C374D065719Ce1Fdc63E2c5C13146813c0A83b",
+        "role": "fabric",
+        "label": "Symbiosis Fabric"
+      },
+      {
+        "address": "0x6Dc500d82e334bDB16cc4Fa3B241a05414714032",
+        "role": "depository",
+        "label": "Symbiosis Depository"
+      },
+      {
+        "address": "0xc6c6AD9263d21D239029175D8226c3a549606881",
+        "role": "btc_refund_unlocker",
+        "label": "Symbiosis BTC Refund Unlocker"
+      },
+      {
+        "address": "0x6e09E7f8779fE1733dbF59CDae7B5aC4DD664199",
+        "role": "branched_unlocker",
+        "label": "Symbiosis Branched Unlocker"
+      },
+      {
+        "address": "0x314F9213989370921c6b3b13b3E8460a1C8341d0",
+        "role": "timed_unlocker",
+        "label": "Symbiosis Timed Unlocker"
+      },
+      {
+        "address": "0x503Ca86bF0be0A9Ec67EA42eaf458b7EB9432F44",
+        "role": "timed_swap_unlocker",
+        "label": "Symbiosis Timed Swap Unlocker"
+      },
+      {
+        "address": "0x06848b52101352c3568e40DeF2df57e83648b5ad",
+        "role": "withdraw_unlocker",
+        "label": "Symbiosis Withdraw Unlocker"
+      }
+    ]
+  },
+  "tokens": [
+    {
+      "symbol": "syBTC",
+      "address": "0x384157027B1CDEAc4e26e3709667BB28735379Bb",
+      "decimals": 8
+    },
+    {
+      "symbol": "symBTC",
+      "address": "0x1cEaeda3D17936916D0F3E866Aa5Ef861F544840",
+      "decimals": 8
+    }
+  ],
+  "contracts": [
+    "0xcE8f24A58D85eD5c5A6824f7be1F8d4711A0eb4C",
+    "0xAdB2d3b711Bb8d8Ea92ff70292c466140432c278",
+    "0x5523985926Aa12BA58DC5Ad00DDca99678D7227E",
+    "0x5Aa5f7f84eD0E5db0a4a85C3947eA16B53352FD4",
+    "0xf1C374D065719Ce1Fdc63E2c5C13146813c0A83b",
+    "0x6Dc500d82e334bDB16cc4Fa3B241a05414714032",
+    "0xc6c6AD9263d21D239029175D8226c3a549606881",
+    "0x6e09E7f8779fE1733dbF59CDae7B5aC4DD664199",
+    "0x314F9213989370921c6b3b13b3E8460a1C8341d0",
+    "0x503Ca86bF0be0A9Ec67EA42eaf458b7EB9432F44",
+    "0x06848b52101352c3568e40DeF2df57e83648b5ad"
+  ]
+}

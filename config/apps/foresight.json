@@ -1,0 +1,33 @@
+{
+  "id": "foresight",
+  "label": "Foresight",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Wallet totals include Foresight prediction activity via pinned Citrea launchpad contracts."
+  },
+  "walletMetrics": {
+    "mode": "destination-address",
+    "category": "prediction",
+    "addresses": [
+      {
+        "address": "0xc2C0FD00227fB04B8F77ba06c6A3caAa147A331a",
+        "role": "launchpad",
+        "label": "Foresight Launchpad"
+      }
+    ]
+  },
+  "tokens": [
+    {
+      "symbol": "ctUSD",
+      "address": "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D",
+      "decimals": 18
+    }
+  ],
+  "contracts": [
+    "0xc2C0FD00227fB04B8F77ba06c6A3caAa147A331a"
+  ]
+}

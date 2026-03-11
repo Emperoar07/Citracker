@@ -91,16 +91,18 @@
   {
     "id": "foresight",
     "label": "Foresight",
-    "status": "tracked",
+    "status": "ok",
     "type": "prediction market",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
     "url": "https://www.foresight.now",
     "docsUrl": "https://docs.foresight.now/guides/getting-started/introduction-to-foresight",
-    "usage": "Prediction market app listed in the Citrea app hub",
+    "usage": "Wallet totals include Foresight prediction activity via pinned Citrea launchpad contracts.",
     "hubCategory": "Adventurer",
-    "contracts": [],
+    "contracts": [
+      "0xc2C0FD00227fB04B8F77ba06c6A3caAa147A331a"
+    ],
     "displayUrl": null
   },
   {
@@ -202,16 +204,18 @@
   {
     "id": "signals",
     "label": "Signals",
-    "status": "tracked",
+    "status": "ok",
     "type": "prediction market",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
     "url": "https://app.signals.wtf",
     "docsUrl": "https://docs.signals.wtf/docs/",
-    "usage": "Prediction market app listed in the Citrea app hub",
+    "usage": "Wallet totals include Signals market activity via pinned Citrea contracts and explorer transfer flow.",
     "hubCategory": "Adventurer",
-    "contracts": [],
+    "contracts": [
+      "0x516312275875932ec2B53A41df4De02743131729"
+    ],
     "displayUrl": null
   },
   {
@@ -245,31 +249,48 @@
   {
     "id": "symbiosis",
     "label": "Symbiosis",
-    "status": "tracked",
+    "status": "ok",
     "type": "bridge app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "official api + pinned contracts",
+    "integrated": true,
     "url": "https://app.symbiosis.finance/swap?amountIn=1&chainIn=Bitcoin&chainOut=Citrea&tokenIn=BTC&tokenOut=CBTC",
     "displayUrl": "https://app.symbiosis.finance/swap",
     "apiUrl": "https://api.symbiosis.finance/crosschain/v1/chains",
-    "usage": "Cross-chain bridge and swap route listed in the Citrea app hub",
+    "usage": "Wallet totals include Symbiosis Citrea bridge and route activity via pinned Citrea contracts and official chain API.",
     "hubCategory": "Bridge",
-    "contracts": []
+    "contracts": [
+      "0xcE8f24A58D85eD5c5A6824f7be1F8d4711A0eb4C",
+      "0xAdB2d3b711Bb8d8Ea92ff70292c466140432c278",
+      "0x5523985926Aa12BA58DC5Ad00DDca99678D7227E",
+      "0x5Aa5f7f84eD0E5db0a4a85C3947eA16B53352FD4",
+      "0xf1C374D065719Ce1Fdc63E2c5C13146813c0A83b",
+      "0x6Dc500d82e334bDB16cc4Fa3B241a05414714032",
+      "0xc6c6AD9263d21D239029175D8226c3a549606881",
+      "0x6e09E7f8779fE1733dbF59CDae7B5aC4DD664199",
+      "0x314F9213989370921c6b3b13b3E8460a1C8341d0",
+      "0x503Ca86bF0be0A9Ec67EA42eaf458b7EB9432F44",
+      "0x06848b52101352c3568e40DeF2df57e83648b5ad"
+    ]
   },
   {
     "id": "zentra",
     "label": "Zentra",
-    "status": "tracked",
+    "status": "ok",
     "type": "lending",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
     "url": "https://zentra.finance/markets/ctusd",
     "displayUrl": "https://zentra.finance/markets",
     "docsUrl": "https://zentrafinance.gitbook.io/zentra/",
-    "usage": "Citrea lending market tracked in the source registry; not yet included in wallet totals",
+    "usage": "Wallet totals include Zentra lending activity via pinned Citrea pool and configurator contracts.",
     "hubCategory": "Lender",
-    "contracts": []
+    "contracts": [
+      "0xfb7908150b738e7dB9862007c66C9eb7850706F5",
+      "0x4C851B65B85aF26959C1023017f5F8D310D33CDf",
+      "0x6864042da4A5BBEb2a98e910599964C9d8B7B684",
+      "0xd8A09eEf673e877C0eD4ac5caEa6f935D5158144"
+    ]
   }
 ]
