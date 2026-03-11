@@ -1,0 +1,51 @@
+[
+  {
+    "chainId": 1,
+    "protocolName": "citrea-canonical-usdc",
+    "bridgeVariant": "canonical_erc20",
+    "directionScope": "l1_to_l2",
+    "contractAddress": "0xdaa289CC487Cf95Ba99Db62f791c7E2d2a4b868E"
+  },
+  {
+    "chainId": 1,
+    "protocolName": "citrea-canonical-usdt",
+    "bridgeVariant": "canonical_erc20",
+    "directionScope": "l1_to_l2",
+    "contractAddress": "0x6925ccD29e3993c82a574CED4372d8737C6dbba6"
+  },
+  {
+    "chainId": 1,
+    "protocolName": "citrea-canonical-wbtc",
+    "bridgeVariant": "canonical_erc20",
+    "directionScope": "l1_to_l2",
+    "contractAddress": "0x2c01390E10e44C968B73A7BcFF7E4b4F50ba76Ed"
+  },
+  {
+    "chainId": 4114,
+    "protocolName": "citrea-canonical-usdc",
+    "bridgeVariant": "layerzero_oft",
+    "directionScope": "both",
+    "contractAddress": "0x41710804caB0974638E1504DB723D7bddec22e30"
+  },
+  {
+    "chainId": 4114,
+    "protocolName": "citrea-canonical-usdt",
+    "bridgeVariant": "layerzero_oft",
+    "directionScope": "both",
+    "contractAddress": "0xF8b5983BFa11dc763184c96065D508AE1502C030"
+  },
+  {
+    "chainId": 4114,
+    "protocolName": "citrea-canonical-wbtc",
+    "bridgeVariant": "layerzero_oft",
+    "directionScope": "both",
+    "contractAddress": "0xDF240DC08B0FdaD1d93b74d5048871232f6BEA3d"
+  },
+  {
+    "chainId": 4114,
+    "protocolName": "citrea-btc-bridge",
+    "bridgeVariant": "citrea_btc_system",
+    "directionScope": "both",
+    "contractAddress": "0x3100000000000000000000000000000000000002"
+  }
+]

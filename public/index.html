@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Citracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div class="brand-lockup">
+          <svg class="brand-mark" viewBox="0 0 96 96" aria-hidden="true">
+            <circle cx="48" cy="48" r="48" fill="#FF890A"></circle>
+            <path d="M48 19L63 34.5C66.2 37.8 66.2 43.1 63 46.4L48 61L33 46.4C29.8 43.1 29.8 37.8 33 34.5L48 19Z" fill="#FFFFFF"></path>
+            <path d="M24 55H44.5L38.5 74H18L24 55Z" fill="#FFFFFF"></path>
+            <path d="M58 55H78L72 74H51.5L58 55Z" fill="#FFFFFF"></path>
+            <circle cx="48" cy="48" r="8" fill="#CCFF00"></circle>
+            <path d="M48 48L67 29" stroke="#333333" stroke-width="4" stroke-linecap="round"></path>
+          </svg>
+          <div>
+            <p class="eyebrow">Citrea Mainnet Intelligence</p>
+            <h1>Citracker</h1>
+            <p class="hero-copy">Wallet tracking on the left. Permanent live Citrea monitoring on the right. One page, two stable contexts.</p>
+            <div class="hero-rail">
+              <span class="hero-chip">No wallet connect</span>
+              <span class="hero-chip">Mainnet only</span>
+              <span class="hero-chip">BTC + EVM bridge watch</span>
+            </div>
+          </div>
+        </div>
+        <div class="live-pill">
+          <span class="live-dot"></span>
+          <span id="networkLiveLabel">Network panel polling</span>
+        </div>
+      </header>
+
+      <section class="split">
+        <section class="panel left-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Wallet Tracker</h2>
+              <p>Paste a wallet address. No wallet connection is used anywhere.</p>
+            </div>
+          </div>
+
+          <section class="filters">
+            <label>
+              Wallet Address
+              <input id="walletInput" type="text" placeholder="0x..." />
+            </label>
+            <label>
+              From
+              <input id="fromInput" type="datetime-local" />
+            </label>
+            <label>
+              To
+              <input id="toInput" type="datetime-local" />
+            </label>
+            <button id="loadBtn">Load Wallet Data</button>
+          </section>
+
+          <section id="status" class="status"></section>
+          <section class="kpis" id="kpis"></section>
+
+          <section class="card chart-card">
+            <div class="section-head">
+              <h3>Wallet Activity Timeline</h3>
+            </div>
+            <canvas id="activityChart"></canvas>
+          </section>
+
+          <section class="tables">
+            <article class="card">
+              <div class="section-head">
+                <h3>Bridge Transfers</h3>
+              </div>
+              <div class="table-scroll">
+                <table id="transfersTable">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Direction</th>
+                      <th>Token</th>
+                      <th>Amount</th>
+                      <th>USD</th>
+                      <th>Tx</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="section-head">
+                <h3>DEX Swaps</h3>
+              </div>
+              <div class="table-scroll">
+                <table id="swapsTable">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>DEX</th>
+                      <th>In</th>
+                      <th>Out</th>
+                      <th>Swap USD</th>
+                      <th>Tx</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="section-head">
+                <h3>Gas Transactions</h3>
+              </div>
+              <div class="table-scroll">
+                <table id="gasTable">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Chain</th>
+                      <th>Category</th>
+                      <th>Fee (Native)</th>
+                      <th>Fee (USD)</th>
+                      <th>Tx</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+        </section>
+
+        <aside class="panel right-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Citrea Mainnet Live</h2>
+              <p>Permanent network view. Refreshes automatically without touching wallet data.</p>
+            </div>
+            <div class="mini-meta">
+              <span id="networkUpdatedAt">Waiting for first sync</span>
+            </div>
+          </div>
+
+          <section id="networkStatus" class="status"></section>
+          <section class="network-kpis" id="networkKpis"></section>
+
+          <section class="card network-stack">
+            <div class="section-head">
+              <h3>Bridge Origins</h3>
+            </div>
+            <div class="metric-list" id="bridgeOrigins"></div>
+          </section>
+
+          <section class="card network-stack">
+            <div class="section-head">
+              <h3>Citrea Gas Price</h3>
+              <span class="subtle" id="gasPriceUpdatedAt">Awaiting explorer sync</span>
+            </div>
+            <div class="metric-list" id="gasPriceMetrics"></div>
+          </section>
+
+          <section class="card network-stack">
+            <div class="section-head">
+              <h3>Token Spend On Citrea</h3>
+              <span class="subtle">Indexed DEX input totals</span>
+            </div>
+            <div class="table-scroll">
+              <table id="tokenSpendTable">
+                <thead>
+                  <tr>
+                    <th>Token</th>
+                    <th>Amount Spent</th>
+                    <th>Spent USD</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card network-stack">
+            <div class="section-head">
+              <h3>Live Sources</h3>
+            </div>
+            <div class="metric-list" id="sourceHealth"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

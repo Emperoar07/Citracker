@@ -1,0 +1,44 @@
+[
+  {
+    "chainId": 4114,
+    "dexName": "juiceswap",
+    "dexVariant": "uniswap_v3",
+    "contractRole": "factory",
+    "contractAddress": "0xd809b1285aDd8eeaF1B1566Bf31B2B4C4Bba8e82"
+  },
+  {
+    "chainId": 4114,
+    "dexName": "juiceswap",
+    "dexVariant": "uniswap_v3",
+    "contractRole": "router",
+    "contractAddress": "0x565eD3D57fe40f78A46f348C220121AE093c3cF8"
+  },
+  {
+    "chainId": 4114,
+    "dexName": "juiceswap-v2",
+    "dexVariant": "uniswap_v2",
+    "contractRole": "factory",
+    "contractAddress": "0x400B27260bc8BbBF740e25B29a24EDf175d9fE56"
+  },
+  {
+    "chainId": 4114,
+    "dexName": "juiceswap-v2",
+    "dexVariant": "uniswap_v2",
+    "contractRole": "router",
+    "contractAddress": "0x6BDea31C89E0A202cE84b5752BB2e827B39984ae"
+  },
+  {
+    "chainId": 4114,
+    "dexName": "satsuma",
+    "dexVariant": "algebra_v3",
+    "contractRole": "factory",
+    "contractAddress": "0x10253594A832f967994b44f33411940533302ACb"
+  },
+  {
+    "chainId": 4114,
+    "dexName": "fibrous",
+    "dexVariant": "aggregator_router",
+    "contractRole": "router",
+    "contractAddress": "0x1A8D0D08c7d1648Dfe86b445D9DFe3d5bB4814C1"
+  }
+]
