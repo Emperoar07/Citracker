@@ -204,14 +204,48 @@ function maxUsdCandidate(candidates) {
   return valid.sort((a, b) => b.usd - a.usd)[0];
 }
 
-function isSwapLikeTransaction(tx, trackedDestinations = STATIC_DEX_DESTINATIONS) {
+function hasSwapKeyword(tx) {
   const method = String(tx?.method || tx?.decoded_input?.method_call || "").toLowerCase();
+  return method.includes("swap");
+}
+
+function getSwapClassification(tx, walletAddress, txTransfers, trackedDestinations = STATIC_DEX_DESTINATIONS) {
   const destination =
     normalizeAddress(tx?.to?.hash) ||
     normalizeAddress(tx?.to) ||
     normalizeAddress(tx?.created_contract?.hash);
 
-  return method.includes("swap") && Boolean(destination && trackedDestinations.has(destination));
+  if (!destination || !trackedDestinations.has(destination)) {
+    return {
+      isSwap: false,
+      destination,
+      walletOutTransfers: [],
+      walletInTransfers: [],
+      hasNativeInput: false,
+      methodHasSwapKeyword: hasSwapKeyword(tx)
+    };
+  }
+
+  const walletOutTransfers = txTransfers.filter(
+    (transfer) => normalizeAddress(transfer?.from?.hash || transfer?.from) === walletAddress
+  );
+  const walletInTransfers = txTransfers.filter(
+    (transfer) => normalizeAddress(transfer?.to?.hash || transfer?.to) === walletAddress
+  );
+  const hasNativeInput = BigInt(tx?.value || "0") > 0n;
+  const methodHasSwapKeyword = hasSwapKeyword(tx);
+  const isSwap =
+    methodHasSwapKeyword ||
+    (walletInTransfers.length > 0 && (walletOutTransfers.length > 0 || hasNativeInput));
+
+  return {
+    isSwap,
+    destination,
+    walletOutTransfers,
+    walletInTransfers,
+    hasNativeInput,
+    methodHasSwapKeyword
+  };
 }
 
 async function fetchEtherscanLikeTxCount({ baseUrl, apiKey, wallet, startTimestamp, endTimestamp }) {
@@ -354,12 +388,15 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   let gasTotalWei = 0n;
   let gasTotalUsd = 0;
   let swapVolumeUsdTotal = 0;
+  let swapCount = 0;
   const gasItems = [];
   const swapItems = [];
 
   for (const tx of transactions) {
     const feeWei = BigInt(tx?.fee?.value || "0");
     gasTotalWei += feeWei;
+    const txTransfers = swapTransfersByHash.get(String(tx.hash || "").toLowerCase()) || [];
+    const classification = getSwapClassification(tx, walletAddress, txTransfers, trackedDexDestinations);
     const gasUsdPrice = await resolveNativeUsdPrice(env.citreaChainId, tx.timestamp).catch(() => null);
     if (gasUsdPrice) {
       gasTotalUsd += Number(ethers.formatEther(feeWei)) * gasUsdPrice.price;
@@ -373,33 +410,27 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         effective_gas_price_wei: tx.gas_price || "0",
         fee_native: ethers.formatEther(feeWei),
         fee_usd: gasUsdPrice ? String(Number(ethers.formatEther(feeWei)) * gasUsdPrice.price) : null,
-        tx_category: isSwapLikeTransaction(tx, trackedDexDestinations) ? "dex" : "other",
+        tx_category: classification.isSwap ? "dex" : "other",
         block_timestamp: tx.timestamp
       });
     }
 
-    if (isSwapLikeTransaction(tx, trackedDexDestinations)) {
+    if (classification.isSwap) {
+      swapCount += 1;
       const tokenInAddress = findDecodedParam(tx, "tokenIn");
       const tokenOutAddress = findDecodedParam(tx, "tokenOut");
       const amountInRaw = findDecodedParam(tx, "amountIn") || "0";
       const amountOutRaw =
         findDecodedParam(tx, "amountOut", "amountOutMinimum", "minAmountOut", "amountOutMin") || "0";
-      const txTransfers = swapTransfersByHash.get(String(tx.hash || "").toLowerCase()) || [];
-      const walletOutTransfers = txTransfers.filter(
-        (transfer) => normalizeAddress(transfer?.from?.hash || transfer?.from) === walletAddress
-      );
-      const walletInTransfers = txTransfers.filter(
-        (transfer) => normalizeAddress(transfer?.to?.hash || transfer?.to) === walletAddress
-      );
       const [pricedWalletOut, pricedWalletIn] = await Promise.all([
-        Promise.all(walletOutTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp))),
-        Promise.all(walletInTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp)))
+        Promise.all(classification.walletOutTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp))),
+        Promise.all(classification.walletInTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp)))
       ]);
 
       let exactInput = maxUsdCandidate(pricedWalletOut);
       const exactOutput = maxUsdCandidate(pricedWalletIn);
 
-      if (!exactInput && BigInt(tx?.value || "0") > 0n) {
+      if (!exactInput && classification.hasNativeInput) {
         const nativeAmount = Number(ethers.formatEther(tx.value));
         const nativePrice = await resolveNativeUsdPrice(env.citreaChainId, tx.timestamp).catch(() => null);
         if (nativePrice) {
@@ -452,7 +483,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   return {
     enabled: true,
     tx_count: transactions.length,
-    swap_count: transactions.filter((tx) => isSwapLikeTransaction(tx, trackedDexDestinations)).length,
+    swap_count: swapCount,
     gas_total_native: ethers.formatEther(gasTotalWei),
     gas_total_usd: String(gasTotalUsd),
     swap_volume_usd_total: String(swapVolumeUsdTotal),
