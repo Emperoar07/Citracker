@@ -54,8 +54,179 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function formatRefreshMinutes(ms) {
+  const minutes = Math.max(Math.round(ms / 60000), 1);
+  return `${minutes}m`;
+}
+
 function utcDateString(date = new Date()) {
   return date.toISOString().slice(0, 10);
+}
+
+function buildSourceRegistry(statuses) {
+  const cadence = formatRefreshMinutes(env.networkRefreshMs);
+  return [
+    {
+      id: "citrea_explorer_api",
+      label: "Citrea Explorer API",
+      status: statuses.citreaExplorer,
+      type: "official api",
+      cadence,
+      integrated: true,
+      url: env.citreascanApiUrl,
+      usage: "Wallet transactions, gas, token transfers, chain stats"
+    },
+    {
+      id: "citrea_docs",
+      label: "Citrea Docs",
+      status: "reference",
+      type: "official docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.citrea.xyz/",
+      usage: "Chain metadata, contracts, RPC and bridge references"
+    },
+    {
+      id: "citrea_bridge_ui",
+      label: "Citrea Bridge",
+      status: "reference",
+      type: "official ui",
+      cadence: "manual",
+      integrated: false,
+      url: "https://citrea.xyz/bridge",
+      usage: "Official bridge surface for user-side reference"
+    },
+    {
+      id: "citrea_app_hub",
+      label: "Citrea App Hub",
+      status: "reference",
+      type: "official ui",
+      cadence: "manual",
+      integrated: false,
+      url: "https://app.citrea.xyz/",
+      usage: "Official app discovery surface"
+    },
+    {
+      id: "citrea_batch_explorer",
+      label: "Citrea Batch Explorer",
+      status: "reference",
+      type: "official ui",
+      cadence: "manual",
+      integrated: false,
+      url: "https://citrea.xyz/batch-explorer?page=1&limit=10",
+      usage: "Batch-level Bitcoin settlement context"
+    },
+    {
+      id: "fibrous_api",
+      label: "Fibrous API",
+      status: "documented",
+      type: "app api",
+      cadence: "on demand",
+      integrated: false,
+      url: "https://docs.fibrous.finance/api-reference/introduction",
+      usage: "Aggregator quotes and route surface for Fibrous-powered swaps"
+    },
+    {
+      id: "fibrous_docs",
+      label: "Fibrous Docs",
+      status: "reference",
+      type: "app docs",
+      cadence: "manual",
+      integrated: false,
+      url: "https://docs.fibrous.finance/essentials/inspiration-for-aggregator",
+      usage: "Fibrous router and integration reference"
+    },
+    {
+      id: "symbiosis_api",
+      label: "Symbiosis API",
+      status: "documented",
+      type: "app api",
+      cadence: "on demand",
+      integrated: false,
+      url: "https://api.symbiosis.finance/crosschain/v1/chains",
+      usage: "Cross-chain routing surface, not yet wired into tracker totals"
+    },
+    {
+      id: "symbiosis_app",
+      label: "Symbiosis App",
+      status: "reference",
+      type: "app ui",
+      cadence: "manual",
+      integrated: false,
+      url: "https://app.symbiosis.finance/swap?amountIn=1&chainIn=Bitcoin&chainOut=Citrea&tokenIn=BTC&tokenOut=CBTC",
+      usage: "User-side bridge and swap interface"
+    },
+    {
+      id: "defillama_chain",
+      label: "DefiLlama Chain",
+      status: statuses.defillamaChain,
+      type: "secondary api",
+      cadence,
+      integrated: true,
+      url: `${env.defillamaApiBase}/v2/chains`,
+      usage: "Chain TVL cross-check"
+    },
+    {
+      id: "defillama_bridge",
+      label: "DefiLlama Bridge",
+      status: statuses.defillamaBridge,
+      type: "secondary api",
+      cadence,
+      integrated: true,
+      url: `${env.defillamaApiBase}/protocol/${env.defillamaBridgeProtocol}`,
+      usage: "Bridge origin and TVL cross-check"
+    },
+    {
+      id: "defillama_dex",
+      label: "DefiLlama DEX",
+      status: statuses.defillamaDex,
+      type: "secondary api",
+      cadence,
+      integrated: true,
+      url: `${env.defillamaApiBase}/overview/dexs/${encodeURIComponent(env.defillamaChainName.toLowerCase())}`,
+      usage: "Chain-wide DEX volume cross-check"
+    },
+    {
+      id: "mempool_space",
+      label: "mempool.space",
+      status: "reference",
+      type: "btc api",
+      cadence: "manual",
+      integrated: false,
+      url: "https://mempool.space/",
+      usage: "BTC-side context around Citrea bridge activity"
+    },
+    {
+      id: "indexed_db",
+      label: "Citracker Index",
+      status: statuses.indexed,
+      type: "internal index",
+      cadence,
+      integrated: true,
+      url: null,
+      usage: "Wallet bridge flows, indexed swaps and fee enrichment"
+    },
+    {
+      id: "dune",
+      label: "Dune",
+      status: "manual",
+      type: "reference analytics",
+      cadence: "manual",
+      integrated: false,
+      url: "https://dune.com/",
+      usage: "Potential query-based validation only; not wired without a maintained Citrea query"
+    },
+    {
+      id: "nansen",
+      label: "Nansen",
+      status: "unsupported",
+      type: "reference analytics",
+      cadence: "manual",
+      integrated: false,
+      url: "https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social",
+      usage: "Not integrated for Citrea because official supported-chain docs do not currently list Citrea"
+    }
+  ];
 }
 
 export async function refreshLiveTransactionState(totalTransactions, fallbackCount = 0, fallbackDate = null) {
@@ -348,6 +519,13 @@ export async function getNetworkSummary() {
       defillama_dex: dex.error ? "error" : "ok",
       indexed: indexed.error ? "error" : "ok"
     },
+    source_registry: buildSourceRegistry({
+      citreaExplorer: explorer.error ? "error" : "ok",
+      defillamaChain: chainTvl.error ? "error" : "ok",
+      defillamaBridge: bridge.error ? "error" : "ok",
+      defillamaDex: dex.error ? "error" : "ok",
+      indexed: indexed.error ? "error" : "ok"
+    }),
     errors,
     citrea: {
       total_inflow_usd: indexed.total_inflow_usd,

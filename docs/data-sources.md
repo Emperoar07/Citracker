@@ -1,129 +1,73 @@
-# Citrea Data Sources
+# Citracker Data Sources
 
-This file ranks the data sources currently relevant to `Citracker` by practical usefulness, not by brand recognition.
+This file separates Citrea-related data sources into production-integrated sources, documented app-level sources, UI-only references, and manual analytics references.
 
-## Summary
-
-| Source | Official | Free | Public API | Good for Wallet Volume | Good for Network Volume | Notes |
-|---|---|---:|---:|---:|---:|---|
-| Citrea Blockscout | Yes | Yes | Yes | Yes | Yes | Best primary source for wallet txs, gas, token metadata, token transfers, chain stats |
-| Citrea Docs | Yes | Yes | No | No | Indirectly | Best source for chain metadata, contracts, RPCs |
-| Citrea Batch Explorer | Yes | Yes | No clear public API confirmed | No | Partial | Useful reference for batch-level context |
-| mempool.space | No (Citrea) | Yes | Yes | BTC-side only | BTC-side only | Useful for Bitcoin bridge context and BTC mempool state |
-| CoinGecko | No (Citrea) | Yes | Yes | Pricing only | Pricing only | Best free historical price source currently integrated |
-| Dune | No (Citrea official source) | Partial | Yes | Maybe | Maybe | Useful only if Citrea support/query coverage is confirmed per dashboard/query |
-| Nansen | No (Citrea official source) | No for API | Auth-gated | Maybe | Maybe | Useful as a dashboard reference; not a dependable free Citrea API source |
-| public-apis/public-apis | No | Yes | Directory only | Discovery only | Discovery only | Good for finding candidate APIs, not as a runtime source |
-
-## Recommended Runtime Sources
-
-### 1. Citrea Blockscout
-
-Use as the primary live data source.
-
-Relevant endpoints and pages:
-
-- Explorer: `https://explorer.mainnet.citrea.xyz/`
-- Stats: `https://explorer.mainnet.citrea.xyz/stats`
-- API docs: `https://explorer.mainnet.citrea.xyz/api-docs`
-- Tokens: `https://explorer.mainnet.citrea.xyz/tokens`
-- Token transfers: `https://explorer.mainnet.citrea.xyz/token-transfers`
-
-Use cases:
-
-- Wallet tx count
-- Wallet tx history
-- Gas fee extraction
-- Token metadata fallback
-- Chain-wide stats
-- Token transfer validation
-
-### 2. Citrea Official Docs
-
-- Docs: `https://docs.citrea.xyz/`
-- Site: `https://citrea.xyz/`
-- Origins: `https://origins.citrea.xyz/`
-- Repo: `https://github.com/chainwayxyz/citrea`
-
-Use cases:
-
-- Canonical bridge addresses
-- RPC/documentation verification
-- Architecture and protocol references
-- Contract lists and network metadata
-
-### 3. CoinGecko
-
-Use as the default historical pricing source.
-
-Current use in `Citracker`:
-
-- stablecoins via static safe mapping
-- BTC-like assets via CoinGecko `bitcoin`
-- ETH-like assets via CoinGecko `ethereum`
-
-Constraint:
-
-- Public tier rate limits can return `429`
-
-### 4. mempool.space
-
-- `https://mempool.space/`
-
-Use cases:
-
-- BTC-side bridge context
-- Bitcoin fee environment
-- Bitcoin tx inspection around bridge deposits/withdrawals
-
-## Reference-Only Sources
-
-### Dune
-
-Dune may become useful for cross-check dashboards and custom SQL, but it should not be treated as a trusted Citrea runtime dependency until Citrea support/query coverage is verified per query/dashboard.
-
-Why not primary right now:
-
-- Citrea chain support was not confirmed from official Dune docs during this pass.
-- Public dashboards can exist without stable official API coverage for the exact metrics we need.
-- Query results can depend on community-maintained logic rather than protocol-owned definitions.
-
-Recommended use:
-
-- manual cross-checking
-- analyst dashboards
-- later optional integration if a specific Citrea query is identified and maintained
-
-### Nansen
-
-- `https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social`
-
-Why not primary right now:
-
-- Auth-gated product
-- Not a free public API source
-- Citrea support was not confirmed as a documented stable API integration target in this pass
-
-Recommended use:
-
-- manual dashboard reference
-- sanity-check against macro trends only
-
-## Useful Free API Candidates Discovered Via `public-apis/public-apis`
-
-These are discovery candidates, not direct replacements for Citrea-native data:
-
-- CoinGecko: historical and spot pricing
-- Etherscan-like explorers: useful pattern, but Citrea already has its own Blockscout explorer
-- Blockchair: cross-chain reference data, useful for secondary validation
-- mempool.space: best free BTC-side operational source for this project
-
-## Current Policy For `Citracker`
+## Source Policy
 
 Use this order of trust:
 
-1. Citrea official docs and official explorer
-2. Direct RPC reads and indexed database results
-3. CoinGecko for historical pricing
-4. mempool.space for BTC-side context
-5. Dune and Nansen only as secondary validation references
+1. Citrea official explorer and official docs
+2. Direct RPC reads and Citracker's indexed Postgres data
+3. DefiLlama and CoinGecko for cross-checks and pricing
+4. App-level APIs such as Fibrous or Symbiosis only when the endpoint and semantics are confirmed
+5. Dune and Nansen only as manual validation references unless a maintained Citrea query/API path is explicitly wired
+
+## Production-Integrated Sources
+
+| Source | Type | Official | Cadence | Purpose | URL |
+|---|---|---:|---|---|---|
+| Citrea Explorer API | official api | Yes | 5m | Wallet tx count, gas, token transfers, chain stats | `https://explorer.mainnet.citrea.xyz/api/v2` |
+| Citrea Explorer Stats | official api | Yes | 5m | Total txs, users, gas prices, blocks | `https://explorer.mainnet.citrea.xyz/api/v2/stats` |
+| DefiLlama Chains | secondary api | No | 5m | Citrea TVL cross-check | `https://api.llama.fi/v2/chains` |
+| DefiLlama Protocol | secondary api | No | 5m | Bridge TVL and origin split | `https://api.llama.fi/protocol/citrea-bridge` |
+| DefiLlama DEX overview | secondary api | No | 5m | Citrea-wide DEX volume cross-check | `https://api.llama.fi/overview/dexs/citrea` |
+| Citracker Indexed DB | internal index | No | 5m | Indexed bridge flows, swaps, fee enrichment | local Postgres |
+| CoinGecko | secondary api | No | on demand | Historical token and gas pricing | `https://api.coingecko.com/api/v3` |
+
+## Official Citrea References
+
+These are authoritative references, but not all of them are runtime APIs.
+
+| Source | Type | API | Purpose | URL |
+|---|---|---:|---|---|
+| Citrea Docs | official docs | No | Chain metadata, canonical contracts, RPC docs | `https://docs.citrea.xyz/` |
+| Citrea Main Site | official site | No | Product and ecosystem reference | `https://citrea.xyz/` |
+| Citrea Bridge | official ui | No confirmed public API | Official bridge surface | `https://citrea.xyz/bridge` |
+| Citrea App Hub | official ui | No confirmed public API | Official app discovery | `https://app.citrea.xyz/` |
+| Citrea Batch Explorer | official ui | No confirmed public API | Bitcoin settlement/batch context | `https://citrea.xyz/batch-explorer?page=1&limit=10` |
+| Citrea Origins | official ui | No confirmed public API | Origin/campaign reference | `https://origins.citrea.xyz/` |
+| Citrea GitHub | official repo | N/A | Protocol/source verification | `https://github.com/chainwayxyz/citrea` |
+
+## App-Level APIs And References
+
+These are relevant because Citrea users route through them, but they should only drive runtime logic when the API contract is verified and the metric definition is clear.
+
+| Source | Type | Public API | Current Use In Citracker | Notes |
+|---|---|---:|---|---|
+| Fibrous Docs | app docs | Yes, documented | Used as integration reference | Citrea router docs and aggregator model are confirmed |
+| Fibrous API | app api | Documented | Not yet used as runtime truth | Base described as `https://api.fibrous.finance/citrea/{version}` in docs |
+| Fibrous GitHub | app repo | N/A | Reference only | Useful for router/integration verification |
+| Symbiosis App | app ui | No confirmed primary-source runtime contract in this pass | Reference only | Useful because Citrea users bridge through it |
+| Symbiosis Chains API | app api | Yes | Not yet used as runtime truth | `https://api.symbiosis.finance/crosschain/v1/chains` responded successfully during verification |
+
+## BTC-Side Reference
+
+| Source | Type | Public API | Purpose | URL |
+|---|---|---:|---|---|
+| mempool.space | btc api | Yes | BTC-side bridge context and fee environment | `https://mempool.space/` |
+
+## Manual Analytics References
+
+These should not be treated as runtime truth in the app today.
+
+| Source | Why not runtime today | URL |
+|---|---|---|
+| Dune | Official API exists, but it is query-driven and requires a maintained Citrea query path; no production Citrea query was confirmed in this pass | `https://dune.com/` |
+| Nansen | Dashboard product, auth-gated, and current official supported-chain docs did not confirm Citrea support for API/runtime use | `https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social` |
+
+## Current Runtime Rule
+
+- Wallet counts and wallet activity: Citrea explorer first, indexed DB second
+- Chain-wide totals: Citrea explorer + DefiLlama + indexed DB
+- Pricing: CoinGecko plus safe symbol mapping
+- Fibrous and Symbiosis: app-level sources to expand later, but not promoted to chain truth until endpoint semantics are pinned

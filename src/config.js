@@ -28,6 +28,6 @@ export const env = {
   defillamaApiBase: process.env.DEFILLAMA_API_BASE || "https://api.llama.fi",
   defillamaChainName: process.env.DEFILLAMA_CHAIN_NAME || "Citrea",
   defillamaBridgeProtocol: process.env.DEFILLAMA_BRIDGE_PROTOCOL || "citrea-bridge",
-  networkRefreshMs: Number(process.env.NETWORK_REFRESH_MS || 60000),
+  networkRefreshMs: Number(process.env.NETWORK_REFRESH_MS || 300000),
   allowedOrigins: (process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean)
 };

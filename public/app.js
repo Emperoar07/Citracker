@@ -15,6 +15,11 @@ const bridgePanelEl = document.getElementById("bridgePanel");
 
 let networkPollHandle = null;
 
+function formatRefreshInterval(ms) {
+  const minutes = Math.max(Math.round(Number(ms || 0) / 60000), 1);
+  return `Refreshes every ${minutes}m`;
+}
+
 function friendlyErrorMessage(message, fallback) {
   if (!message) return fallback;
   if (message.includes("DATABASE_URL is required")) {
@@ -157,19 +162,45 @@ function renderNetworkSummary(payload) {
       </div>`)
     .join("");
 
-  sourceHealthEl.innerHTML = Object.entries(payload.sources)
-    .map(([source, status]) => `
-      <div class="metric-row">
-        <span class="metric-label">${source.replace(/_/g, " ")}</span>
-        <span class="metric-value ${status === "ok" ? "source-ok" : "source-error"}">${status}</span>
-      </div>`)
+  const sourceEntries = Array.isArray(payload.source_registry) && payload.source_registry.length
+    ? payload.source_registry
+    : Object.entries(payload.sources || {}).map(([id, status]) => ({
+        id,
+        label: id.replace(/_/g, " "),
+        status,
+        type: "source",
+        cadence: "unknown",
+        usage: ""
+      }));
+
+  sourceHealthEl.innerHTML = sourceEntries
+    .map((entry) => {
+      const statusClass =
+        entry.status === "ok"
+          ? "source-ok"
+          : entry.status === "error"
+            ? "source-error"
+            : "source-neutral";
+      const meta = [entry.type, entry.cadence, entry.integrated ? "integrated" : "reference"]
+        .filter(Boolean)
+        .join(" · ");
+      return `
+        <div class="source-entry">
+          <div class="source-entry-top">
+            <span class="metric-label">${entry.url ? `<a href="${entry.url}" target="_blank" rel="noreferrer">${entry.label}</a>` : entry.label}</span>
+            <span class="metric-value ${statusClass}">${entry.status}</span>
+          </div>
+          <div class="source-entry-meta">${meta}</div>
+          <div class="source-entry-usage">${entry.usage || ""}</div>
+        </div>`;
+    })
     .join("");
 
   networkUpdatedAtEl.textContent = `Updated ${new Date(payload.updated_at).toLocaleString()}`;
   gasPriceUpdatedAtEl.textContent = metrics.gas_price_updated_at
     ? `Explorer gas update ${new Date(metrics.gas_price_updated_at).toLocaleTimeString()}`
     : "Explorer gas update unavailable";
-  networkLiveLabelEl.textContent = `Polling every ${Math.max(Math.round(payload.refresh_ms / 1000), 1)}s`;
+  networkLiveLabelEl.textContent = formatRefreshInterval(payload.refresh_ms);
   const statusText = payload.errors.length
     ? friendlyErrorMessage(payload.errors.join(" | "), "Citrea mainnet panel synced.")
     : "Citrea mainnet panel synced.";
@@ -204,10 +235,10 @@ async function loadNetworkData() {
   try {
     const payload = await fetchJsonOrThrow("/api/v1/network/summary");
     renderNetworkSummary(payload);
-    scheduleNetworkPolling(payload.refresh_ms || 60000);
+    scheduleNetworkPolling(payload.refresh_ms || 300000);
   } catch (error) {
     setNetworkStatus(friendlyErrorMessage(error.message, "Failed to load Citrea mainnet panel."), true);
-    scheduleNetworkPolling(60000);
+    scheduleNetworkPolling(300000);
   }
 }
 
