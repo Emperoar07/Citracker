@@ -17,7 +17,6 @@ const swapsTbody = document.querySelector("#swapsTable tbody");
 const gasTbody = document.querySelector("#gasTable tbody");
 const tokenSpendTbody = document.querySelector("#tokenSpendTable tbody");
 
-let walletChart;
 let networkPollHandle = null;
 
 function friendlyErrorMessage(message, fallback) {
@@ -101,40 +100,6 @@ function renderKpis(summary) {
   kpiEl.innerHTML = cards
     .map(([label, value]) => `<div class="kpi"><div class="label">${label}</div><div class="value">${money(value)}</div></div>`)
     .join("");
-}
-
-function renderWalletComposition(summary) {
-  const labels = ["Bridge Volume", "DEX Volume", "Gas Total"];
-  const values = [
-    Number(summary.bridge.volume_usd || 0),
-    Number(summary.dex.swap_volume_usd || 0),
-    Number(summary.gas.total_usd || 0)
-  ];
-
-  if (walletChart) walletChart.destroy();
-  walletChart = new Chart(document.getElementById("activityChart"), {
-    type: "doughnut",
-    data: {
-      labels,
-      datasets: [
-        {
-          data: values,
-          backgroundColor: ["#ff890a", "#ccff00", "#f4d4a4"],
-          borderColor: ["#2a221c", "#2a221c", "#2a221c"],
-          borderWidth: 2
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "bottom"
-        }
-      }
-    }
-  });
 }
 
 function fillRows(tbody, rowsHtml, colspan) {
@@ -234,9 +199,9 @@ function renderNetworkSummary(payload) {
     ["Gas Used Today", number(metrics.gas_used_today, 0)]
   ]
     .map(([label, value]) => `
-      <div class="metric-row">
-        <span class="metric-label">${label}</span>
-        <span class="metric-value">${value}</span>
+      <div class="gas-stat">
+        <span class="gas-stat-label">${label}</span>
+        <span class="gas-stat-value">${value}</span>
       </div>`)
     .join("");
 
@@ -293,7 +258,6 @@ async function loadWalletData() {
     ]);
 
     renderKpis(summary);
-    renderWalletComposition(summary);
     renderWalletTables(transfers, swaps, gas);
 
     setStatus(`Loaded all-time totals for ${wallet}.`);
