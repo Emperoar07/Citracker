@@ -85,11 +85,21 @@ async function getDefillamaDexStats() {
 }
 
 async function getCitreascanNetworkStats() {
-  const data = await fetchJson(env.citreascanStatsUrl);
+  const [data, txChart] = await Promise.all([
+    fetchJson(env.citreascanStatsUrl),
+    fetchJson(`${env.citreascanApiUrl.replace(/\/$/, "")}/stats/charts/transactions`).catch(() => null)
+  ]);
+  const latestDailyPoint = Array.isArray(txChart?.chart_data) ? txChart.chart_data[0] : null;
+
   return {
     total_users: toNumber(data?.total_addresses),
     total_transactions: toNumber(data?.total_transactions),
     transactions_today: toNumber(data?.transactions_today),
+    latest_daily_transactions: toNumber(
+      latestDailyPoint?.transactions_count,
+      toNumber(data?.transactions_today)
+    ),
+    latest_daily_transactions_date: latestDailyPoint?.date || null,
     total_blocks: toNumber(data?.total_blocks),
     average_block_time_ms: toNumber(data?.average_block_time),
     network_utilization_percentage: toNumber(data?.network_utilization_percentage),
@@ -250,6 +260,8 @@ export async function getNetworkSummary() {
       indexed_wallet_count: indexed.indexed_wallet_count,
       total_transactions: explorer.total_transactions || 0,
       transactions_today: explorer.transactions_today || 0,
+      latest_daily_transactions: explorer.latest_daily_transactions || explorer.transactions_today || 0,
+      latest_daily_transactions_date: explorer.latest_daily_transactions_date || null,
       total_blocks: explorer.total_blocks || 0,
       average_block_time_ms: explorer.average_block_time_ms || 0,
       network_utilization_percentage: explorer.network_utilization_percentage || 0,

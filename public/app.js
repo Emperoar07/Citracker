@@ -57,6 +57,13 @@ function number(value, digits = 6) {
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+function shortDateLabel(value) {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.style.color = isError ? "#ff6b6b" : "#c8b59d";
@@ -106,6 +113,9 @@ function renderWalletPanels(summary) {
 
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
+  const latestDailyLabel = metrics.latest_daily_transactions_date
+    ? `Latest Daily Tx (${shortDateLabel(metrics.latest_daily_transactions_date)})`
+    : "Latest Daily Tx";
   const cards = [
     ["Indexed Volume (USD)", metrics.total_activity_volume_usd],
     ["Indexed Inflow (USD)", metrics.total_inflow_usd],
@@ -114,7 +124,7 @@ function renderNetworkSummary(payload) {
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
     ["Users", metrics.total_users],
     ["Transactions", metrics.total_transactions],
-    ["Tx Today", metrics.transactions_today],
+    [latestDailyLabel, metrics.latest_daily_transactions],
     ["DEX 24h (USD)", metrics.dex_volume_24h_usd]
   ];
 
