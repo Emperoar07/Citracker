@@ -23,11 +23,9 @@
             <path d="M48 48L67 29" stroke="#333333" stroke-width="4" stroke-linecap="round"></path>
           </svg>
           <div>
-            <p class="eyebrow">Citrea Mainnet Intelligence</p>
             <h1>Citracker</h1>
-            <p class="hero-copy">Wallet tracking on the left. Permanent live Citrea monitoring on the right. One page, two stable contexts.</p>
+            <p class="eyebrow">Citrea Mainnet Intelligence</p>
             <div class="hero-rail">
-              <span class="hero-chip">No wallet connect</span>
               <span class="hero-chip">Mainnet only</span>
               <span class="hero-chip">BTC + EVM bridge watch</span>
             </div>
@@ -44,7 +42,7 @@
           <div class="panel-head">
             <div>
               <h2>Wallet Tracker</h2>
-              <p>Paste a wallet address. No wallet connection is used anywhere.</p>
+              <p>Paste a wallet address to load all-time totals.</p>
             </div>
           </div>
 
@@ -52,14 +50,6 @@
             <label>
               Wallet Address
               <input id="walletInput" type="text" placeholder="0x..." />
-            </label>
-            <label>
-              From
-              <input id="fromInput" type="datetime-local" />
-            </label>
-            <label>
-              To
-              <input id="toInput" type="datetime-local" />
             </label>
             <button id="loadBtn">Load Wallet Data</button>
           </section>
@@ -69,7 +59,7 @@
 
           <section class="card chart-card">
             <div class="section-head">
-              <h3>Wallet Activity Timeline</h3>
+              <h3>All-Time Activity Mix</h3>
             </div>
             <canvas id="activityChart"></canvas>
           </section>
@@ -144,7 +134,7 @@
           <div class="panel-head">
             <div>
               <h2>Citrea Mainnet Live</h2>
-              <p>Permanent network view. Refreshes automatically without touching wallet data.</p>
+              <p>Permanent network view with continuous Citrea-wide updates.</p>
             </div>
             <div class="mini-meta">
               <span id="networkUpdatedAt">Waiting for first sync</span>

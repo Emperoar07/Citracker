@@ -17,14 +17,14 @@ export function parseISODate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function validateDateRange(from, to) {
+export function validateDateRange(from, to, options = {}) {
   const fromDate = parseISODate(from);
   const toDate = parseISODate(to);
   if (!fromDate || !toDate) return { ok: false, reason: "Invalid from/to date" };
   if (toDate < fromDate) return { ok: false, reason: "to must be >= from" };
   const diffMs = toDate.getTime() - fromDate.getTime();
   const maxDays = 366;
-  if (diffMs > maxDays * 24 * 60 * 60 * 1000) {
+  if (!options.allowWideRange && diffMs > maxDays * 24 * 60 * 60 * 1000) {
     return { ok: false, reason: "Date range exceeds 366 days" };
   }
   return { ok: true, fromDate, toDate };

@@ -1,6 +1,4 @@
 const walletInput = document.getElementById("walletInput");
-const fromInput = document.getElementById("fromInput");
-const toInput = document.getElementById("toInput");
 const loadBtn = document.getElementById("loadBtn");
 const statusEl = document.getElementById("status");
 const kpiEl = document.getElementById("kpis");
@@ -19,16 +17,29 @@ const swapsTbody = document.querySelector("#swapsTable tbody");
 const gasTbody = document.querySelector("#gasTable tbody");
 const tokenSpendTbody = document.querySelector("#tokenSpendTable tbody");
 
-const now = new Date();
-const prior = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-fromInput.value = prior.toISOString().slice(0, 16);
-toInput.value = now.toISOString().slice(0, 16);
-
 let walletChart;
 let networkPollHandle = null;
 
-function isoFromLocal(value) {
-  return new Date(value).toISOString();
+async function fetchJsonOrThrow(url) {
+  const response = await fetch(url);
+  const text = await response.text();
+  let payload = null;
+
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    const err = new Error(text || `Non-JSON response from ${url}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  if (!response.ok) {
+    const err = new Error(payload.error || `Request failed with ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  return payload;
 }
 
 function shortHash(hash) {
@@ -56,12 +67,12 @@ function percent(value) {
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
-  statusEl.style.color = isError ? "#b91c1c" : "#536471";
+  statusEl.style.color = isError ? "#ff6b6b" : "#c8b59d";
 }
 
 function setNetworkStatus(text, isError = false) {
   networkStatusEl.textContent = text;
-  networkStatusEl.style.color = isError ? "#b91c1c" : "#536471";
+  networkStatusEl.style.color = isError ? "#ff6b6b" : "#c8b59d";
 }
 
 function renderKpis(summary) {
@@ -84,38 +95,25 @@ function renderKpis(summary) {
     .join("");
 }
 
-function renderWalletChart(series) {
-  const labels = series.points.map((point) => new Date(point.ts).toLocaleDateString());
-  const bridge = series.points.map((point) => Number(point.bridge_volume_usd || 0));
-  const dex = series.points.map((point) => Number(point.dex_volume_usd || 0));
-  const gas = series.points.map((point) => Number(point.gas_total_usd || 0));
+function renderWalletComposition(summary) {
+  const labels = ["Bridge Volume", "DEX Volume", "Gas Total"];
+  const values = [
+    Number(summary.bridge.volume_usd || 0),
+    Number(summary.dex.swap_volume_usd || 0),
+    Number(summary.gas.total_usd || 0)
+  ];
 
   if (walletChart) walletChart.destroy();
   walletChart = new Chart(document.getElementById("activityChart"), {
-    type: "line",
+    type: "doughnut",
     data: {
       labels,
       datasets: [
         {
-          label: "Bridge Volume USD",
-          data: bridge,
-          borderColor: "#0057ff",
-          backgroundColor: "rgba(0, 87, 255, 0.12)",
-          tension: 0.25
-        },
-        {
-          label: "DEX Volume USD",
-          data: dex,
-          borderColor: "#0f9d7a",
-          backgroundColor: "rgba(15, 157, 122, 0.12)",
-          tension: 0.25
-        },
-        {
-          label: "Gas USD",
-          data: gas,
-          borderColor: "#f97316",
-          backgroundColor: "rgba(249, 115, 22, 0.12)",
-          tension: 0.25
+          data: values,
+          backgroundColor: ["#ff890a", "#ccff00", "#f4d4a4"],
+          borderColor: ["#2a221c", "#2a221c", "#2a221c"],
+          borderWidth: 2
         }
       ]
     },
@@ -270,45 +268,22 @@ async function loadWalletData() {
     return;
   }
 
-  const from = isoFromLocal(fromInput.value);
-  const to = isoFromLocal(toInput.value);
   const base = `/api/v1/wallet/${wallet}`;
-  const query = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-
-  setStatus("Loading wallet data...");
+  setStatus("Loading all-time wallet totals...");
 
   try {
-    const [summaryRes, seriesRes, transfersRes, swapsRes, gasRes] = await Promise.all([
-      fetch(`${base}/summary?${query}`),
-      fetch(`${base}/timeseries?${query}&interval=1d`),
-      fetch(`${base}/transfers?${query}&limit=20`),
-      fetch(`${base}/swaps?${query}&limit=20`),
-      fetch(`${base}/gas?${query}&chain=all&category=all&limit=20`)
+    const [summary, transfers, swaps, gas] = await Promise.all([
+      fetchJsonOrThrow(`${base}/summary`),
+      fetchJsonOrThrow(`${base}/transfers?limit=20`),
+      fetchJsonOrThrow(`${base}/swaps?limit=20`),
+      fetchJsonOrThrow(`${base}/gas?chain=all&category=all&limit=20`)
     ]);
-
-    const [summary, series, transfers, swaps, gas] = await Promise.all([
-      summaryRes.json(),
-      seriesRes.json(),
-      transfersRes.json(),
-      swapsRes.json(),
-      gasRes.json()
-    ]);
-
-    if (!summaryRes.ok) throw new Error(summary.error || "Summary request failed");
-    if (!seriesRes.ok) throw new Error(series.error || "Timeseries request failed");
-    if (!transfersRes.ok) throw new Error(transfers.error || "Transfers request failed");
-    if (!swapsRes.ok) throw new Error(swaps.error || "Swaps request failed");
-    if (!gasRes.ok) throw new Error(gas.error || "Gas request failed");
 
     renderKpis(summary);
-    renderWalletChart(series);
+    renderWalletComposition(summary);
     renderWalletTables(transfers, swaps, gas);
 
-    const explorerText = summary.explorer?.enabled
-      ? ` Explorer counts: ETH ${summary.explorer.eth_tx_count ?? "n/a"}, Citrea ${summary.explorer.citrea_tx_count ?? "n/a"}.`
-      : "";
-
-    setStatus(`Loaded wallet ${wallet}.${explorerText}`);
+    setStatus(`Loaded all-time totals for ${wallet}.`);
   } catch (error) {
     setStatus(error.message || "Failed to load wallet data.", true);
   }
@@ -316,13 +291,7 @@ async function loadWalletData() {
 
 async function loadNetworkData() {
   try {
-    const response = await fetch("/api/v1/network/summary");
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error || "Network summary request failed");
-    }
-
+    const payload = await fetchJsonOrThrow("/api/v1/network/summary");
     renderNetworkSummary(payload);
     scheduleNetworkPolling(payload.refresh_ms || 60000);
   } catch (error) {

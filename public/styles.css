@@ -60,7 +60,7 @@ body {
 }
 
 .eyebrow {
-  margin: 0 0 12px;
+  margin: 8px 0 0;
   color: var(--lime);
   font-size: 0.8rem;
   font-weight: 700;
@@ -74,13 +74,6 @@ body {
   font-size: clamp(2.6rem, 5vw, 4.6rem);
   line-height: 0.92;
   letter-spacing: -0.04em;
-}
-
-.hero-copy {
-  margin: 12px 0 0;
-  max-width: 720px;
-  color: var(--muted);
-  font-size: 1rem;
 }
 
 .hero-rail {
@@ -176,7 +169,7 @@ body {
 
 .filters {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: end;
 }
@@ -403,7 +396,7 @@ tbody tr:last-child td {
 
 @media (max-width: 900px) {
   .filters {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .kpis {

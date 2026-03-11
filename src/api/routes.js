@@ -13,26 +13,31 @@ import { getExplorerEnhancements } from "../services/explorerService.js";
 import { normalizeWallet, validateDateRange } from "../utils/validators.js";
 
 const router = express.Router();
+const ALL_TIME_FROM = "1970-01-01T00:00:00.000Z";
+const ALL_TIME_TO = "2100-01-01T00:00:00.000Z";
 
 const rangeQuerySchema = z.object({
-  from: z.string(),
-  to: z.string()
+  from: z.string().optional(),
+  to: z.string().optional()
 });
 
-function getRangeOrThrow(query) {
+function getRangeOrDefault(query) {
   const parsed = rangeQuerySchema.safeParse(query);
   if (!parsed.success) {
-    const err = new Error("Missing required from/to query params");
+    const err = new Error("Invalid from/to query params");
     err.status = 400;
     throw err;
   }
-  const check = validateDateRange(parsed.data.from, parsed.data.to);
+
+  const from = parsed.data.from || ALL_TIME_FROM;
+  const to = parsed.data.to || ALL_TIME_TO;
+  const check = validateDateRange(from, to, { allowWideRange: true });
   if (!check.ok) {
     const err = new Error(check.reason);
     err.status = 400;
     throw err;
   }
-  return parsed.data;
+  return { from, to, isAllTime: !parsed.data.from && !parsed.data.to };
 }
 
 function getWalletOrThrow(wallet) {
@@ -57,7 +62,7 @@ router.get("/network/summary", async (req, res, next) => {
 router.get("/wallet/:wallet/summary", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
-    const { from, to } = getRangeOrThrow(req.query);
+    const { from, to, isAllTime } = getRangeOrDefault(req.query);
     const base = coerceSummaryPayload(await getWalletSummary(wallet, from, to));
 
     const explorer = await getExplorerEnhancements(wallet, from, to);
@@ -67,6 +72,7 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
     }
 
     base.explorer = explorer;
+    base.is_all_time = isAllTime;
     return res.json(base);
   } catch (err) {
     return next(err);
@@ -76,7 +82,7 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
 router.get("/wallet/:wallet/timeseries", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
-    const { from, to } = getRangeOrThrow(req.query);
+    const { from, to } = getRangeOrDefault(req.query);
     const interval = req.query.interval || "1d";
 
     if (!["1h", "1d", "1w"].includes(interval)) {
@@ -93,7 +99,7 @@ router.get("/wallet/:wallet/timeseries", async (req, res, next) => {
 router.get("/wallet/:wallet/transfers", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
-    const { from, to } = getRangeOrThrow(req.query);
+    const { from, to } = getRangeOrDefault(req.query);
     const direction = req.query.direction;
     const token = req.query.token;
     const limit = Math.min(Number(req.query.limit || 50), 200);
@@ -112,7 +118,7 @@ router.get("/wallet/:wallet/transfers", async (req, res, next) => {
 router.get("/wallet/:wallet/swaps", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
-    const { from, to } = getRangeOrThrow(req.query);
+    const { from, to } = getRangeOrDefault(req.query);
     const dex = req.query.dex && req.query.dex !== "all" ? req.query.dex : null;
     const token = req.query.token;
     const limit = Math.min(Number(req.query.limit || 50), 200);
@@ -127,7 +133,7 @@ router.get("/wallet/:wallet/swaps", async (req, res, next) => {
 router.get("/wallet/:wallet/gas", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
-    const { from, to } = getRangeOrThrow(req.query);
+    const { from, to } = getRangeOrDefault(req.query);
     const chain = req.query.chain || "all";
     const category = req.query.category || "all";
     const limit = Math.min(Number(req.query.limit || 50), 200);
