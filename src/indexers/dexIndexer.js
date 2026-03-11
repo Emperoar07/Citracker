@@ -101,6 +101,26 @@ async function fetchRouterTransactions(routerAddress, maxItems) {
   return items.slice(0, maxItems);
 }
 
+async function fetchExplorerTokenMetadata(address) {
+  if (!address || !env.citreascanApiUrl) return null;
+
+  try {
+    const token = await fetchJson(`${env.citreascanApiUrl.replace(/\/$/, "")}/tokens/${address}`);
+    const decimals = Number(token?.decimals);
+    if (!token?.symbol || !Number.isFinite(decimals)) {
+      return null;
+    }
+
+    return {
+      symbol: token.symbol,
+      name: token.name || token.symbol,
+      decimals
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function resolveL2Token(provider, address, fallbackSymbol = "cBTC", fallbackName = "Citrea Bitcoin") {
   if (!address || normalizeAddress(address) === ZERO_ADDRESS) {
     const tokenId = await upsertToken({
@@ -113,7 +133,17 @@ async function resolveL2Token(provider, address, fallbackSymbol = "cBTC", fallba
     return { tokenId, decimals: 18, symbol: fallbackSymbol };
   }
 
-  const metadata = await readErc20Metadata(provider, address);
+  let metadata;
+  try {
+    metadata = await readErc20Metadata(provider, address);
+  } catch {
+    metadata = await fetchExplorerTokenMetadata(address);
+  }
+
+  if (!metadata) {
+    return { tokenId: null, decimals: 18, symbol: address };
+  }
+
   const tokenId = await upsertToken({
     symbol: metadata.symbol,
     name: metadata.name,
@@ -417,7 +447,23 @@ async function processRouterTransactions(routerConfig, provider) {
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11,$12,$13,$14,$15,$16,$17
       )
-      ON CONFLICT DO NOTHING`,
+      ON CONFLICT (chain_id, tx_hash, (COALESCE(log_index, -1)), wallet_address)
+      DO UPDATE SET
+        dex_name = EXCLUDED.dex_name,
+        protocol_version = EXCLUDED.protocol_version,
+        router_address = EXCLUDED.router_address,
+        block_number = EXCLUDED.block_number,
+        block_timestamp = EXCLUDED.block_timestamp,
+        token_in_id = COALESCE(EXCLUDED.token_in_id, dex_swaps.token_in_id),
+        token_out_id = COALESCE(EXCLUDED.token_out_id, dex_swaps.token_out_id),
+        token_in_raw = EXCLUDED.token_in_raw,
+        token_out_raw = EXCLUDED.token_out_raw,
+        token_in_amount = EXCLUDED.token_in_amount,
+        token_out_amount = EXCLUDED.token_out_amount,
+        event_name = EXCLUDED.event_name,
+        token_in_usd = NULL,
+        token_out_usd = NULL,
+        swap_volume_usd = NULL`,
       [
         routerConfig.dex_name,
         routerConfig.dex_variant,

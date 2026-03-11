@@ -197,8 +197,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_dex_dedupe_expr ON dex_swaps (
   (COALESCE(log_index, -1)),
   wallet_address
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_tokens_l1_pair_expr ON tokens ((COALESCE(l1_chain_id, -1)), (COALESCE(l1_address, '')));
-CREATE UNIQUE INDEX IF NOT EXISTS uq_tokens_l2_pair_expr ON tokens ((COALESCE(l2_chain_id, -1)), (COALESCE(l2_address, '')));
+DROP INDEX IF EXISTS uq_tokens_l1_pair_expr;
+DROP INDEX IF EXISTS uq_tokens_l2_pair_expr;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tokens_l1_pair
+  ON tokens (l1_chain_id, l1_address)
+  WHERE l1_chain_id IS NOT NULL AND l1_address IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tokens_l2_pair
+  ON tokens (l2_chain_id, l2_address)
+  WHERE l2_chain_id IS NOT NULL AND l2_address IS NOT NULL;
 
 -- Wallet daily aggregates for fast dashboard queries.
 CREATE MATERIALIZED VIEW IF NOT EXISTS wallet_flow_daily AS

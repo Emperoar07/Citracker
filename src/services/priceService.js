@@ -2,8 +2,8 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 
 const HISTORY_PRICE_CACHE = new Map();
-const STABLECOIN_SYMBOLS = new Set(["USDC", "USDC.E", "USDT", "USDT.E"]);
-const BITCOIN_SYMBOLS = new Set(["BTC", "WBTC", "CBTC", "CITREA BTC", "CITREA_BTC"]);
+const STABLECOIN_SYMBOLS = new Set(["USDC", "USDC.E", "USDT", "USDT.E", "CTUSD"]);
+const BITCOIN_SYMBOLS = new Set(["BTC", "WBTC", "WCBTC", "CBTC", "CITREA BTC", "CITREA_BTC"]);
 const ETHEREUM_SYMBOLS = new Set(["ETH", "WETH"]);
 
 function normalizeSymbol(symbol) {
@@ -62,6 +62,10 @@ async function fetchCoinGeckoHistory(assetId, timestamp) {
 
   const res = await fetch(url.toString(), { headers });
   if (!res.ok) {
+    if (res.status === 429) {
+      HISTORY_PRICE_CACHE.set(cacheKey, null);
+      return null;
+    }
     throw new Error(`CoinGecko HTTP ${res.status}`);
   }
 

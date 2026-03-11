@@ -70,17 +70,11 @@ function setNetworkStatus(text, isError = false) {
 
 function renderKpis(summary) {
   const cards = [
-    ["Bridge Inflow (USD)", summary.bridge.inflow_usd],
-    ["Bridge Outflow (USD)", summary.bridge.outflow_usd],
-    ["Netflow (USD)", summary.bridge.netflow_usd],
-    ["Bridge Volume (USD)", summary.bridge.volume_usd],
-    ["DEX Volume (USD)", summary.dex.swap_volume_usd],
-    ["DEX Swap Count", summary.dex.swap_count],
+    ["Bridge Tx Count", summary.bridge.tx_count],
+    ["Bridge Inflow (USDT)", summary.bridge.inflow_usd],
+    ["Bridge Outflow (USDT)", summary.bridge.outflow_usd],
+    ["Bridge Value (USDT)", summary.bridge.volume_usd],
     ["Citrea Tx Count", summary.citrea_total_tx_count],
-    ["Total Activity (USD)", summary.total_activity_volume_usd],
-    ["Gas L1 (Native)", summary.gas.l1_native],
-    ["Gas L2 (Native)", summary.gas.l2_native],
-    ["Gas Total (USD)", summary.gas.total_usd]
   ];
 
   kpiEl.innerHTML = cards

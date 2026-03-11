@@ -99,15 +99,34 @@ export async function upsertToken({
     return inserted.rows[0].id;
   }
 
-  const selected = await pool.query(
-    `SELECT id FROM tokens
-     WHERE ($1::bigint IS NULL OR l1_chain_id = $1)
-       AND ($2::text IS NULL OR l1_address = $2 OR l2_address = $2)
-       AND ($3::bigint IS NULL OR l2_chain_id = $3)
-     ORDER BY created_at ASC
-     LIMIT 1`,
-    [l1ChainId || null, l1Address ? normalizeAddress(l1Address) : l2Address ? normalizeAddress(l2Address) : null, l2ChainId || null]
-  );
+  let selected;
+  if (l1ChainId && l1Address) {
+    selected = await pool.query(
+      `SELECT id FROM tokens
+       WHERE l1_chain_id = $1 AND l1_address = $2
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [l1ChainId, normalizeAddress(l1Address)]
+    );
+  } else if (l2ChainId && l2Address) {
+    selected = await pool.query(
+      `SELECT id FROM tokens
+       WHERE l2_chain_id = $1 AND l2_address = $2
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [l2ChainId, normalizeAddress(l2Address)]
+    );
+  } else if (isNative && l2ChainId) {
+    selected = await pool.query(
+      `SELECT id FROM tokens
+       WHERE l2_chain_id = $1 AND is_native = TRUE AND symbol = $2
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [l2ChainId, symbol]
+    );
+  } else {
+    selected = { rows: [] };
+  }
 
   return selected.rows[0]?.id || null;
 }
