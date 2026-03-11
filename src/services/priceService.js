@@ -2,7 +2,7 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 
 const HISTORY_PRICE_CACHE = new Map();
-const STABLECOIN_SYMBOLS = new Set(["USDC", "USDC.E", "USDT", "USDT.E", "CTUSD", "JUSD", "SVJUSD"]);
+const STABLECOIN_SYMBOLS = new Set(["USDC", "USDC.E", "USDT", "USDT.E", "CTUSD", "JUSD", "SVJUSD", "GUSD"]);
 const BITCOIN_SYMBOLS = new Set(["BTC", "WBTC", "WCBTC", "CBTC", "CITREA BTC", "CITREA_BTC"]);
 const ETHEREUM_SYMBOLS = new Set(["ETH", "WETH"]);
 

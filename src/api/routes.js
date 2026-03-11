@@ -79,6 +79,10 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
         Number(base.citrea_total_tx_count || 0),
         Number(citreaFallback.tx_count || 0)
       );
+      base.gas.tx_count = Math.max(
+        Number(base.gas.tx_count || 0),
+        Number(citreaFallback.tx_count || 0)
+      );
       base.dex.swap_count = Math.max(
         Number(base.dex.swap_count || 0),
         Number(citreaFallback.swap_count || 0)

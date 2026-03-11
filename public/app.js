@@ -112,10 +112,10 @@ function renderWalletPanels(summary) {
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
   const cards = [
-    ["Total Volume (USD)", metrics.total_activity_volume_usd],
-    ["Total Inflow (USD)", metrics.total_inflow_usd],
-    ["Total Outflow (USD)", metrics.total_outflow_usd],
-    ["Netflow (USD)", metrics.netflow_usd],
+    ["Indexed Volume (USD)", metrics.total_activity_volume_usd],
+    ["Indexed Inflow (USD)", metrics.total_inflow_usd],
+    ["Indexed Outflow (USD)", metrics.total_outflow_usd],
+    ["Indexed Netflow (USD)", metrics.netflow_usd],
     ["Citrea TVL (USD)", metrics.chain_tvl_usd],
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
     ["Users", metrics.total_users],

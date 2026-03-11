@@ -1,5 +1,6 @@
 import { env } from "../config.js";
 import { getPool } from "../db.js";
+import { resolveTokenUsdPrice } from "./priceService.js";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -17,14 +18,42 @@ function toNumber(value, fallback = 0) {
 async function getDefillamaChainTvl() {
   const data = await fetchJson(`${env.defillamaApiBase}/v2/chains`);
   const chains = Array.isArray(data) ? data : data?.value;
+  const normalizedTarget = env.defillamaChainName.toLowerCase().trim();
   const match = Array.isArray(chains)
-    ? chains.find((item) => String(item?.name || "").toLowerCase() === env.defillamaChainName.toLowerCase())
+    ? chains.find((item) => Number(item?.chainId) === env.citreaChainId) ||
+      chains.find((item) => String(item?.name || "").toLowerCase().trim() === normalizedTarget) ||
+      chains.find((item) => String(item?.name || "").toLowerCase().includes(normalizedTarget))
     : null;
 
   return {
     chain_tvl_usd: toNumber(match?.tvl),
     chain_id: match?.chainId ?? env.citreaChainId
   };
+}
+
+async function enrichTokenSpendRows(rows) {
+  const timestamp = new Date().toISOString();
+  return Promise.all(
+    rows.map(async (row) => {
+      const baseUsd = toNumber(row.amount_spent_usd);
+      if (baseUsd > 0) {
+        return {
+          token: row.token,
+          amount_spent: toNumber(row.amount_spent),
+          amount_spent_usd: baseUsd
+        };
+      }
+
+      const price = await resolveTokenUsdPrice(row.token, timestamp).catch(() => null);
+      const fallbackUsd = price ? toNumber(row.amount_spent) * price.price : 0;
+
+      return {
+        token: row.token,
+        amount_spent: toNumber(row.amount_spent),
+        amount_spent_usd: fallbackUsd
+      };
+    })
+  );
 }
 
 async function getDefillamaBridgeStats() {
@@ -158,20 +187,19 @@ async function getIndexedNetworkStats() {
   const gas = gasRes.rows[0] || {};
   const users = usersRes.rows[0] || {};
 
+  const tokenSpendBreakdown = await enrichTokenSpendRows(tokenSpendRes.rows);
+  const enrichedTokenSpendTotal = tokenSpendBreakdown.reduce((sum, row) => sum + toNumber(row.amount_spent_usd), 0);
+
   return {
     total_inflow_usd: toNumber(bridge.total_inflow_usd),
     total_outflow_usd: toNumber(bridge.total_outflow_usd),
     total_bridge_volume_usd: toNumber(bridge.total_bridge_volume_usd),
     total_swap_count: toNumber(dex.total_swap_count),
-    total_swap_volume_usd: toNumber(dex.total_swap_volume_usd),
-    overall_token_spent_usd: toNumber(dex.overall_token_spent_usd),
+    total_swap_volume_usd: Math.max(toNumber(dex.total_swap_volume_usd), enrichedTokenSpendTotal),
+    overall_token_spent_usd: Math.max(toNumber(dex.overall_token_spent_usd), enrichedTokenSpendTotal),
     total_gas_spent_usd: toNumber(gas.total_gas_spent_usd),
     indexed_wallet_count: toNumber(users.indexed_wallet_count),
-    token_spend_breakdown: tokenSpendRes.rows.map((row) => ({
-      token: row.token,
-      amount_spent: toNumber(row.amount_spent),
-      amount_spent_usd: toNumber(row.amount_spent_usd)
-    }))
+    token_spend_breakdown: tokenSpendBreakdown
   };
 }
 
