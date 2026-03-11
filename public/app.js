@@ -74,6 +74,7 @@ function renderKpis(summary) {
     ["Bridge Inflow (USDT)", summary.bridge.inflow_usd],
     ["Bridge Outflow (USDT)", summary.bridge.outflow_usd],
     ["Bridge Value (USDT)", summary.bridge.volume_usd],
+    ["Total Volume (USDT)", summary.total_activity_volume_usd],
     ["Citrea Tx Count", summary.citrea_total_tx_count],
   ];
 
@@ -110,6 +111,7 @@ function renderWalletPanels(summary) {
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
   const cards = [
+    ["Total Volume (USD)", metrics.total_activity_volume_usd],
     ["Total Inflow (USD)", metrics.total_inflow_usd],
     ["Total Outflow (USD)", metrics.total_outflow_usd],
     ["Netflow (USD)", metrics.netflow_usd],

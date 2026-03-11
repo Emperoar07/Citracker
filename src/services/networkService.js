@@ -215,6 +215,7 @@ export async function getNetworkSummary() {
       netflow_usd: indexed.total_inflow_usd - indexed.total_outflow_usd,
       total_bridge_volume_usd: indexed.total_bridge_volume_usd,
       total_swap_volume_usd: indexed.total_swap_volume_usd,
+      total_activity_volume_usd: indexed.total_bridge_volume_usd + indexed.total_swap_volume_usd,
       total_swap_count: indexed.total_swap_count,
       total_gas_spent_usd: indexed.total_gas_spent_usd,
       total_users: explorer.total_users || indexed.indexed_wallet_count,

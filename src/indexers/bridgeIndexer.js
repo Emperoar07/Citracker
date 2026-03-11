@@ -119,10 +119,15 @@ async function processCanonicalContract(contractConfig, provider) {
   );
 
   for (const [fromBlock, toBlock] of ranges) {
+    const currentHead = await provider.getBlockNumber();
+    if (fromBlock > currentHead) {
+      break;
+    }
+    const safeToBlock = Math.min(toBlock, currentHead);
     const logs = await provider.getLogs({
       address: contractConfig.contract_address,
       fromBlock,
-      toBlock,
+      toBlock: safeToBlock,
       topics: [[
         iface.getEvent("DepositInitiated").topicHash,
         iface.getEvent("WithdrawalInitiated").topicHash
@@ -187,7 +192,7 @@ async function processCanonicalContract(contractConfig, provider) {
       }
     }
 
-    await setCursor(streamKey, Number(contractConfig.chain_id), toBlock);
+    await setCursor(streamKey, Number(contractConfig.chain_id), safeToBlock);
   }
 }
 
@@ -214,10 +219,15 @@ async function processLayerZeroOft(contractConfig, provider) {
   );
 
   for (const [fromBlock, toBlock] of ranges) {
+    const currentHead = await provider.getBlockNumber();
+    if (fromBlock > currentHead) {
+      break;
+    }
+    const safeToBlock = Math.min(toBlock, currentHead);
     const logs = await provider.getLogs({
       address: contractConfig.contract_address,
       fromBlock,
-      toBlock,
+      toBlock: safeToBlock,
       topics: [[
         iface.getEvent("OFTReceived").topicHash,
         iface.getEvent("OFTSent").topicHash
@@ -270,7 +280,7 @@ async function processLayerZeroOft(contractConfig, provider) {
       }
     }
 
-    await setCursor(streamKey, Number(contractConfig.chain_id), toBlock);
+    await setCursor(streamKey, Number(contractConfig.chain_id), safeToBlock);
   }
 }
 
@@ -303,10 +313,15 @@ async function processCitreaBtcBridge(contractConfig, provider) {
   });
 
   for (const [fromBlock, toBlock] of ranges) {
+    const currentHead = await provider.getBlockNumber();
+    if (fromBlock > currentHead) {
+      break;
+    }
+    const safeToBlock = Math.min(toBlock, currentHead);
     const logs = await provider.getLogs({
       address: contractConfig.contract_address,
       fromBlock,
-      toBlock,
+      toBlock: safeToBlock,
       topics: [[
         iface.getEvent("Deposit").topicHash,
         iface.getEvent("Withdrawal").topicHash
@@ -359,7 +374,7 @@ async function processCitreaBtcBridge(contractConfig, provider) {
       }
     }
 
-    await setCursor(streamKey, Number(contractConfig.chain_id), toBlock);
+    await setCursor(streamKey, Number(contractConfig.chain_id), safeToBlock);
   }
 }
 

@@ -200,10 +200,15 @@ async function discoverPools(factoryConfig, provider) {
         : new ethers.Interface(V3_FACTORY_ABI);
 
   for (const [fromBlock, toBlock] of ranges) {
+    const currentHead = await provider.getBlockNumber();
+    if (fromBlock > currentHead) {
+      break;
+    }
+    const safeToBlock = Math.min(toBlock, currentHead);
     const logs = await provider.getLogs({
       address: factoryConfig.contract_address,
       fromBlock,
-      toBlock,
+      toBlock: safeToBlock,
       topics: [[topics.factoryTopic]]
     });
 
@@ -226,7 +231,7 @@ async function discoverPools(factoryConfig, provider) {
       });
     }
 
-    await setCursor(streamKey, Number(factoryConfig.chain_id), toBlock);
+    await setCursor(streamKey, Number(factoryConfig.chain_id), safeToBlock);
   }
 }
 
@@ -283,10 +288,15 @@ async function processPool(poolConfig, provider) {
   ]);
 
   for (const [fromBlock, toBlock] of ranges) {
+    const currentHead = await provider.getBlockNumber();
+    if (fromBlock > currentHead) {
+      break;
+    }
+    const safeToBlock = Math.min(toBlock, currentHead);
     const logs = await provider.getLogs({
       address: poolConfig.contract_address,
       fromBlock,
-      toBlock,
+      toBlock: safeToBlock,
       topics: [topics.swapTopics]
     });
 
@@ -390,7 +400,7 @@ async function processPool(poolConfig, provider) {
       );
     }
 
-    await setCursor(streamKey, Number(poolConfig.chain_id), toBlock);
+    await setCursor(streamKey, Number(poolConfig.chain_id), safeToBlock);
   }
 }
 
