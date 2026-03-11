@@ -1,0 +1,23 @@
+name: Network Refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "2/5 * * * *"
+
+concurrency:
+  group: citracker-network-refresh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refresh live network counters
+        env:
+          APP_URL: ${{ secrets.CITRACKER_BASE_URL }}
+        run: |
+          TARGET_URL="${APP_URL:-https://citracker.vercel.app}"
+          RESPONSE="$(curl --fail --silent --show-error "$TARGET_URL/api/v1/network/summary")"
+          echo "$RESPONSE" | grep '"mode":"live"'
