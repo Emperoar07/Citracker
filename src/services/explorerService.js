@@ -30,6 +30,7 @@ const STATIC_DEX_DESTINATIONS = new Set([
   "0xafcfd58fe17beb0c9d15c51d19519682dfcdaab9",
   "0x274602a953847d807231d2370072f5f4e4594b44"
 ]);
+const STATIC_ROUTER_DESTINATIONS = new Set(STATIC_DEX_DESTINATIONS);
 let trackedDexCache = { value: null, loadedAt: 0 };
 
 function shortAddress(address) {
@@ -169,12 +170,18 @@ async function getTrackedDexDestinations() {
   );
 
   const tracked = new Set(STATIC_DEX_DESTINATIONS);
+  const routers = new Set(STATIC_ROUTER_DESTINATIONS);
   for (const row of result.rows) {
-    tracked.add(normalizeAddress(row.contract_address));
+    const normalized = normalizeAddress(row.contract_address);
+    if (!normalized) continue;
+    tracked.add(normalized);
+    if (String(row.contract_role || "").toLowerCase() === "router") {
+      routers.add(normalized);
+    }
   }
 
-  trackedDexCache = { value: tracked, loadedAt: now };
-  return tracked;
+  trackedDexCache = { value: { all: tracked, routers }, loadedAt: now };
+  return trackedDexCache.value;
 }
 
 function getTransferAmountDecimal(transfer) {
@@ -209,7 +216,19 @@ function hasSwapKeyword(tx) {
   return method.includes("swap");
 }
 
-function getSwapClassification(tx, walletAddress, txTransfers, trackedDestinations = STATIC_DEX_DESTINATIONS) {
+function looksLikeDexExecution(tx) {
+  const types = Array.isArray(tx?.transaction_types) ? tx.transaction_types : [];
+  return types.includes("contract_call") && types.includes("token_transfer");
+}
+
+function getSwapClassification(
+  tx,
+  walletAddress,
+  txTransfers,
+  trackedRegistry = { all: STATIC_DEX_DESTINATIONS, routers: STATIC_ROUTER_DESTINATIONS }
+) {
+  const trackedDestinations = trackedRegistry?.all || STATIC_DEX_DESTINATIONS;
+  const trackedRouters = trackedRegistry?.routers || STATIC_ROUTER_DESTINATIONS;
   const destination =
     normalizeAddress(tx?.to?.hash) ||
     normalizeAddress(tx?.to) ||
@@ -234,9 +253,14 @@ function getSwapClassification(tx, walletAddress, txTransfers, trackedDestinatio
   );
   const hasNativeInput = BigInt(tx?.value || "0") > 0n;
   const methodHasSwapKeyword = hasSwapKeyword(tx);
+  const routerOneSidedSwap =
+    trackedRouters.has(destination) &&
+    walletOutTransfers.length > 0 &&
+    looksLikeDexExecution(tx);
   const isSwap =
     methodHasSwapKeyword ||
-    (walletInTransfers.length > 0 && (walletOutTransfers.length > 0 || hasNativeInput));
+    (walletInTransfers.length > 0 && (walletOutTransfers.length > 0 || hasNativeInput)) ||
+    routerOneSidedSwap;
 
   return {
     isSwap,
@@ -244,7 +268,8 @@ function getSwapClassification(tx, walletAddress, txTransfers, trackedDestinatio
     walletOutTransfers,
     walletInTransfers,
     hasNativeInput,
-    methodHasSwapKeyword
+    methodHasSwapKeyword,
+    routerOneSidedSwap
   };
 }
 
