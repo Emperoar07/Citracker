@@ -1,0 +1,46 @@
+name: Indexers
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: citracker-indexers
+  cancel-in-progress: false
+
+jobs:
+  run-indexers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+      CITREA_RPC_URL: ${{ secrets.CITREA_RPC_URL }}
+      START_BLOCK_ETH: ${{ secrets.START_BLOCK_ETH }}
+      START_BLOCK_CITREA: ${{ secrets.START_BLOCK_CITREA }}
+      INDEXER_CHUNK_SIZE: ${{ secrets.INDEXER_CHUNK_SIZE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bootstrap database
+        run: npm run db:bootstrap
+
+      - name: Run bridge indexer
+        run: npm run indexer:bridge
+
+      - name: Run dex indexer
+        run: npm run indexer:dex
+
+      - name: Run fee indexer
+        run: npm run indexer:fees
