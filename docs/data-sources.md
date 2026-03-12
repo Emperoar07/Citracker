@@ -99,7 +99,24 @@ Pinned per-app metrics configs now live under `config/apps/` for apps that have 
 | Source | Why not runtime today | URL |
 |---|---|---|
 | Dune | Official API exists, but it is query-driven and requires a maintained Citrea query path; no production Citrea query was confirmed in this pass | `https://dune.com/` |
-| Nansen | Dashboard product, auth-gated, and current official supported-chain docs did not confirm Citrea support for API/runtime use | `https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social` |
+| Nansen | Citrea macro dashboard exists, but the official API currently rejects `citrea` as an unsupported chain value. Keep it as a manual cross-check until Nansen adds public Citrea API support. | `https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social` |
+
+## Nansen Status
+
+- `NANSEN_API_KEY` is supported in local/Vercel private env configuration and is intentionally not stored in git.
+- Citracker exposes Nansen in the source registry as a configured reference source when the key is present.
+- Citracker does not use Nansen for Citrea runtime metrics yet.
+- On `2026-03-12`, a live probe against the official Nansen API returned `422 Invalid value 'citrea'` for:
+  - `POST /api/v1/token-screener`
+  - `POST /api/v1/smart-money/dex-trades`
+  - `POST /api/v1/tgm/holders`
+- This means the macro dashboard can be used for manual comparison, but not as production truth in this app until Nansen's public API adds Citrea support.
+
+Manual probe command:
+
+```bash
+npm run probe:nansen
+```
 
 ## Current Runtime Rule
 

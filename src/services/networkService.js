@@ -2,6 +2,7 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 import { resolveTokenUsdPrice } from "./priceService.js";
 import { buildCitreaAppSourceEntries } from "./sourceRegistry.js";
+import { getNansenCitreaProbeResult, getNansenCitreaSourceEntry } from "./nansenService.js";
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -66,6 +67,7 @@ function utcDateString(date = new Date()) {
 
 function buildSourceRegistry(statuses) {
   const cadence = formatRefreshMinutes(env.networkRefreshMs);
+  const nansenSource = getNansenCitreaSourceEntry(cadence);
   return [
     {
       id: "citrea_explorer_api",
@@ -200,18 +202,7 @@ function buildSourceRegistry(statuses) {
       url: "https://dune.com/",
       usage: "Potential query-based validation only; not wired without a maintained Citrea query"
     },
-    {
-      id: "nansen",
-      label: "Nansen",
-      status: "unsupported",
-      type: "reference analytics",
-      cadence: "manual",
-      coverage: "reference",
-      confidence: "reference only",
-      integrated: false,
-      url: "https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social",
-      usage: "Not integrated for Citrea because official supported-chain docs do not currently list Citrea"
-    }
+    nansenSource
   ];
 }
 
@@ -569,6 +560,9 @@ export async function getNetworkSummary() {
       defillamaDex: dex.error ? "error" : "ok",
       indexed: indexed.error ? "error" : "ok"
     }),
+    reference_probes: {
+      nansen: getNansenCitreaProbeResult()
+    },
     errors,
     citrea: {
       total_inflow_usd: indexed.total_inflow_usd,

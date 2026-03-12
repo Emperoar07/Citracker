@@ -12,7 +12,8 @@
     "indexer:bridge": "node src/indexers/bridgeIndexer.js",
     "indexer:dex": "node src/indexers/dexIndexer.js",
     "indexer:fees": "node src/indexers/feeIndexer.js",
-    "indexer:prices": "node src/indexers/priceIndexer.js"
+    "indexer:prices": "node src/indexers/priceIndexer.js",
+    "probe:nansen": "node scripts/probeNansenCitrea.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
