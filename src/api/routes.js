@@ -269,7 +269,7 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
           if (txDiff !== 0) return txDiff;
           return Number(b.volume_usd || 0) - Number(a.volume_usd || 0);
         })
-        .slice(0, 5)
+        .slice(0, 3)
     };
 
     base.explorer = {

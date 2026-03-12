@@ -828,7 +828,7 @@ export async function getCitreaWalletTokenBalances(wallet) {
     enabled: true,
     token_count: balances.length,
     total_usd: String(totalUsd),
-    top_tokens: balances.slice(0, 5),
+    top_tokens: balances.slice(0, 3),
     errors: []
   };
 }

@@ -703,14 +703,14 @@ export async function getPublicInterestIndexedStats() {
       if (volumeDiff !== 0) return volumeDiff;
       return toNumber(b.tx_count) - toNumber(a.tx_count);
     })
-    .slice(0, 5);
+    .slice(0, 3);
   const topTokensBridgedToday = [...tokenMap.values()]
     .sort((a, b) => {
       const volumeDiff = toNumber(b.volume_usd) - toNumber(a.volume_usd);
       if (volumeDiff !== 0) return volumeDiff;
       return toNumber(b.tx_count) - toNumber(a.tx_count);
     })
-    .slice(0, 5);
+    .slice(0, 3);
   const topAppsByTxToday = combinedApps
     .slice()
     .sort((a, b) => {
@@ -718,7 +718,7 @@ export async function getPublicInterestIndexedStats() {
       if (txDiff !== 0) return txDiff;
       return toNumber(b.volume_usd) - toNumber(a.volume_usd);
     })
-    .slice(0, 5);
+    .slice(0, 3);
   const topAppsByVolumeToday = combinedApps
     .slice()
     .sort((a, b) => {
@@ -726,7 +726,7 @@ export async function getPublicInterestIndexedStats() {
       if (volumeDiff !== 0) return volumeDiff;
       return toNumber(b.tx_count) - toNumber(a.tx_count);
     })
-    .slice(0, 5);
+    .slice(0, 3);
 
   return {
     active_wallets_today: toNumber(activeWalletsRes.rows[0]?.active_wallets_today),

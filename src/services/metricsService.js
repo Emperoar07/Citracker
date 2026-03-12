@@ -110,7 +110,7 @@ export async function getWalletSummary(wallet, from, to) {
     SELECT app, category, tx_count, volume_usd
     FROM combined
     ORDER BY tx_count DESC, volume_usd DESC, app ASC
-    LIMIT 5;
+    LIMIT 3;
   `;
 
   const [bridgeRes, dexRes, gasRes, txCountRes, topAppsRes] = await Promise.all([
