@@ -33,6 +33,12 @@ const STATIC_DEX_DESTINATIONS = new Set([
   "0x274602a953847d807231d2370072f5f4e4594b44"
 ]);
 const STATIC_ROUTER_DESTINATIONS = new Set(STATIC_DEX_DESTINATIONS);
+const STATIC_DEX_LABELS = new Map([
+  ["0x565ed3d57fe40f78a46f348c220121ae093c3cf8", "JuiceSwap"],
+  ["0x6bdea31c89e0a202ce84b5752bb2e827b39984ae", "JuiceSwap"],
+  ["0xafcfd58fe17beb0c9d15c51d19519682dfcdaab9", "JuiceSwap"],
+  ["0x274602a953847d807231d2370072f5f4e4594b44", "Fibrous"]
+]);
 let trackedDexCache = { value: null, loadedAt: 0 };
 let trackedAppCache = { value: null, loadedAt: 0 };
 const transactionTransferCache = new Map();
@@ -208,7 +214,7 @@ async function getTrackedDexDestinations() {
 
   const pool = getPool();
   const result = await pool.query(
-    `SELECT contract_address
+    `SELECT contract_address, dex_name, contract_role
      FROM tracked_dex_contracts
      WHERE chain_id = $1
        AND is_active = TRUE
@@ -218,16 +224,20 @@ async function getTrackedDexDestinations() {
 
   const tracked = new Set(STATIC_DEX_DESTINATIONS);
   const routers = new Set(STATIC_ROUTER_DESTINATIONS);
+  const labels = new Map(STATIC_DEX_LABELS);
   for (const row of result.rows) {
     const normalized = normalizeAddress(row.contract_address);
     if (!normalized) continue;
     tracked.add(normalized);
+    if (row.dex_name) {
+      labels.set(normalized, row.dex_name);
+    }
     if (String(row.contract_role || "").toLowerCase() === "router") {
       routers.add(normalized);
     }
   }
 
-  trackedDexCache = { value: { all: tracked, routers }, loadedAt: now };
+  trackedDexCache = { value: { all: tracked, routers, labels }, loadedAt: now };
   return trackedDexCache.value;
 }
 
@@ -794,6 +804,11 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
             : null;
 
       const swapVolumeUsd = exactInput?.usd ?? exactOutput?.usd ?? fallbackVolumeUsd;
+      const dexLabel =
+        trackedDexDestinations?.labels?.get(classification.destination) ||
+        tx?.to?.name ||
+        tx?.method ||
+        "swap";
 
       if (swapVolumeUsd !== null) {
         swapVolumeUsdTotal += swapVolumeUsd;
@@ -801,7 +816,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
 
       if (swapItems.length < limit) {
         swapItems.push({
-          dex: tx?.to?.name || tx?.method || "swap",
+          dex: dexLabel,
           token_in: exactInput?.symbol || tokenInMeta.symbol,
           token_out: exactOutput?.symbol || tokenOutMeta.symbol,
           token_in_amount: String(exactInput?.amount ?? fallbackInputAmount),

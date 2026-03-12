@@ -165,6 +165,34 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
           usageMap.set(key, existing);
         }
       }
+      if (Array.isArray(citreaFallback.swap_items) && citreaFallback.swap_items.length > 0) {
+        const swapUsage = new Map();
+        for (const item of citreaFallback.swap_items) {
+          const app = item.dex || "Unknown DEX";
+          const key = `${String(app).toLowerCase()}::dex`;
+          const existing = swapUsage.get(key) || {
+            app,
+            category: "dex",
+            tx_count: 0,
+            volume_usd: 0
+          };
+          existing.tx_count += 1;
+          existing.volume_usd += Number(item.swap_volume_usd || 0);
+          swapUsage.set(key, existing);
+        }
+
+        for (const [key, item] of swapUsage.entries()) {
+          const existing = usageMap.get(key) || {
+            app: item.app,
+            category: item.category,
+            tx_count: 0,
+            volume_usd: 0
+          };
+          existing.tx_count = Math.max(existing.tx_count, Number(item.tx_count || 0));
+          existing.volume_usd = Math.max(existing.volume_usd, Number(item.volume_usd || 0));
+          usageMap.set(key, existing);
+        }
+      }
       if (Number(citreaFallback.gas_total_native || 0) > Number(base.gas.l2_native || 0)) {
         base.gas.l2_native = String(citreaFallback.gas_total_native || "0");
       }

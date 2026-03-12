@@ -549,7 +549,7 @@ async function getPublicInterestIndexedStats() {
       AND block_timestamp < $2::timestamptz
     GROUP BY 1
     ORDER BY volume_usd DESC, tx_count DESC, route ASC
-    LIMIT 6;
+    LIMIT 5;
   `;
 
   const topTokensBridgedSql = `
@@ -566,111 +566,115 @@ async function getPublicInterestIndexedStats() {
       AND bt.block_timestamp < $2::timestamptz
     GROUP BY 1
     ORDER BY volume_usd DESC, tx_count DESC, token ASC
-    LIMIT 6;
+    LIMIT 5;
   `;
 
-  const topAppsSql = `
-    WITH dex_apps AS (
-      SELECT
-        COALESCE(NULLIF(ds.dex_name, ''), 'Unknown DEX') AS app,
-        'dex' AS category,
-        COUNT(*)::bigint AS tx_count,
-        COALESCE(SUM(ds.swap_volume_usd), 0) AS volume_usd
-      FROM (
-        SELECT DISTINCT ON (chain_id, tx_hash)
-          chain_id,
-          tx_hash,
-          dex_name,
-          swap_volume_usd,
-          block_timestamp,
-          status,
-          log_index
-        FROM dex_swaps
-        WHERE status = 'confirmed'
-          AND block_timestamp >= $1::timestamptz
-          AND block_timestamp < $2::timestamptz
-        ORDER BY chain_id, tx_hash, COALESCE(log_index, 2147483647), block_timestamp DESC
-      ) ds
-      GROUP BY 1, 2
-    ),
-    bridge_apps AS (
-      SELECT
-        COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
-        'bridge' AS category,
-        COUNT(*)::bigint AS tx_count,
-        COALESCE(SUM(amount_usd), 0) AS volume_usd
-      FROM bridge_transfers
-      WHERE status = 'confirmed'
-        AND block_timestamp >= $1::timestamptz
-        AND block_timestamp < $2::timestamptz
-      GROUP BY 1, 2
-    ),
-    combined AS (
-      SELECT * FROM dex_apps
-      UNION ALL
-      SELECT * FROM bridge_apps
+  const dexAppsSql = `
+    WITH normalized_swaps AS (
+      SELECT DISTINCT ON (ds.chain_id, ds.tx_hash)
+        ds.chain_id,
+        ds.tx_hash,
+        ds.dex_name,
+        ds.block_timestamp,
+        ds.token_in_amount,
+        ds.token_out_amount,
+        ds.token_in_usd,
+        ds.token_out_usd,
+        ds.swap_volume_usd,
+        t_in.symbol AS token_in_symbol,
+        t_out.symbol AS token_out_symbol
+      FROM dex_swaps ds
+      LEFT JOIN tokens t_in ON t_in.id = ds.token_in_id
+      LEFT JOIN tokens t_out ON t_out.id = ds.token_out_id
+      WHERE ds.status = 'confirmed'
+        AND ds.block_timestamp >= $1::timestamptz
+        AND ds.block_timestamp < $2::timestamptz
+      ORDER BY ds.chain_id, ds.tx_hash, COALESCE(ds.log_index, 2147483647), ds.block_timestamp DESC
     )
-    SELECT app, category, tx_count, volume_usd
-    FROM combined
-    ORDER BY tx_count DESC, volume_usd DESC, app ASC
-    LIMIT 6;
+    SELECT *
+    FROM normalized_swaps;
   `;
 
-  const topAppsByVolumeSql = `
-    WITH dex_apps AS (
-      SELECT
-        COALESCE(NULLIF(ds.dex_name, ''), 'Unknown DEX') AS app,
-        'dex' AS category,
-        COUNT(*)::bigint AS tx_count,
-        COALESCE(SUM(ds.swap_volume_usd), 0) AS volume_usd
-      FROM (
-        SELECT DISTINCT ON (chain_id, tx_hash)
-          chain_id,
-          tx_hash,
-          dex_name,
-          swap_volume_usd,
-          block_timestamp,
-          status,
-          log_index
-        FROM dex_swaps
-        WHERE status = 'confirmed'
-          AND block_timestamp >= $1::timestamptz
-          AND block_timestamp < $2::timestamptz
-        ORDER BY chain_id, tx_hash, COALESCE(log_index, 2147483647), block_timestamp DESC
-      ) ds
-      GROUP BY 1, 2
-    ),
-    bridge_apps AS (
-      SELECT
-        COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
-        'bridge' AS category,
-        COUNT(*)::bigint AS tx_count,
-        COALESCE(SUM(amount_usd), 0) AS volume_usd
-      FROM bridge_transfers
-      WHERE status = 'confirmed'
-        AND block_timestamp >= $1::timestamptz
-        AND block_timestamp < $2::timestamptz
-      GROUP BY 1, 2
-    ),
-    combined AS (
-      SELECT * FROM dex_apps
-      UNION ALL
-      SELECT * FROM bridge_apps
-    )
-    SELECT app, category, tx_count, volume_usd
-    FROM combined
-    ORDER BY volume_usd DESC, tx_count DESC, app ASC
-    LIMIT 6;
+  const bridgeAppsSql = `
+    SELECT
+      COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
+      'bridge' AS category,
+      COUNT(*)::bigint AS tx_count,
+      COALESCE(SUM(amount_usd), 0) AS volume_usd
+    FROM bridge_transfers
+    WHERE status = 'confirmed'
+      AND block_timestamp >= $1::timestamptz
+      AND block_timestamp < $2::timestamptz
+    GROUP BY 1, 2;
   `;
 
-  const [activeWalletsRes, topBridgeRoutesRes, topTokensBridgedRes, topAppsRes, topAppsByVolumeRes] =
+  const [activeWalletsRes, topBridgeRoutesRes, topTokensBridgedRes, dexAppsRes, bridgeAppsRes] =
     await Promise.all([
       pool.query(activeWalletsSql, [dayStart, nextDayStart]),
       pool.query(topBridgeRoutesSql, [dayStart, nextDayStart]),
       pool.query(topTokensBridgedSql, [dayStart, nextDayStart]),
-      pool.query(topAppsSql, [dayStart, nextDayStart]),
-      pool.query(topAppsByVolumeSql, [dayStart, nextDayStart])
+      pool.query(dexAppsSql, [dayStart, nextDayStart]),
+      pool.query(bridgeAppsSql, [dayStart, nextDayStart])
     ]);
+
+  const dexAppVolumes = await Promise.all(
+    dexAppsRes.rows.map(async (row) => {
+      let volumeUsd = toNumber(row.swap_volume_usd);
+      if (volumeUsd <= 0) {
+        volumeUsd = toNumber(row.token_in_usd);
+      }
+      if (volumeUsd <= 0) {
+        volumeUsd = toNumber(row.token_out_usd);
+      }
+      if (volumeUsd <= 0 && row.token_in_symbol) {
+        const price = await resolveTokenUsdPrice(row.token_in_symbol, row.block_timestamp).catch(() => null);
+        if (price) {
+          volumeUsd = toNumber(row.token_in_amount) * price.price;
+        }
+      }
+      if (volumeUsd <= 0 && row.token_out_symbol) {
+        const price = await resolveTokenUsdPrice(row.token_out_symbol, row.block_timestamp).catch(() => null);
+        if (price) {
+          volumeUsd = toNumber(row.token_out_amount) * price.price;
+        }
+      }
+
+      return {
+        app: row.dex_name || "Unknown DEX",
+        category: "dex",
+        tx_count: 1,
+        volume_usd: volumeUsd
+      };
+    })
+  );
+
+  const appMap = new Map();
+  for (const item of dexAppVolumes) {
+    const key = `${String(item.app || "").toLowerCase()}::${item.category}`;
+    const existing = appMap.get(key) || {
+      app: item.app,
+      category: item.category,
+      tx_count: 0,
+      volume_usd: 0
+    };
+    existing.tx_count += Number(item.tx_count || 0);
+    existing.volume_usd += Number(item.volume_usd || 0);
+    appMap.set(key, existing);
+  }
+  for (const row of bridgeAppsRes.rows) {
+    const key = `${String(row.app || "").toLowerCase()}::bridge`;
+    const existing = appMap.get(key) || {
+      app: row.app,
+      category: "bridge",
+      tx_count: 0,
+      volume_usd: 0
+    };
+    existing.tx_count += toNumber(row.tx_count);
+    existing.volume_usd += toNumber(row.volume_usd);
+    appMap.set(key, existing);
+  }
+
+  const combinedApps = [...appMap.values()];
 
   return {
     active_wallets_today: toNumber(activeWalletsRes.rows[0]?.active_wallets_today),
@@ -686,18 +690,22 @@ async function getPublicInterestIndexedStats() {
       outflow_usd: toNumber(row.outflow_usd),
       volume_usd: toNumber(row.volume_usd)
     })),
-    top_apps_by_tx_today: topAppsRes.rows.map((row) => ({
-      app: row.app,
-      category: row.category,
-      tx_count: toNumber(row.tx_count),
-      volume_usd: toNumber(row.volume_usd)
-    })),
-    top_apps_by_volume_today: topAppsByVolumeRes.rows.map((row) => ({
-      app: row.app,
-      category: row.category,
-      tx_count: toNumber(row.tx_count),
-      volume_usd: toNumber(row.volume_usd)
-    }))
+    top_apps_by_tx_today: combinedApps
+      .slice()
+      .sort((a, b) => {
+        const txDiff = toNumber(b.tx_count) - toNumber(a.tx_count);
+        if (txDiff !== 0) return txDiff;
+        return toNumber(b.volume_usd) - toNumber(a.volume_usd);
+      })
+      .slice(0, 5),
+    top_apps_by_volume_today: combinedApps
+      .slice()
+      .sort((a, b) => {
+        const volumeDiff = toNumber(b.volume_usd) - toNumber(a.volume_usd);
+        if (volumeDiff !== 0) return volumeDiff;
+        return toNumber(b.tx_count) - toNumber(a.tx_count);
+      })
+      .slice(0, 5)
   };
 }
 
