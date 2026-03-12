@@ -21,6 +21,9 @@ export function coerceSummaryPayload(dbSummary) {
       volume_usd: toDecimalString(dbSummary.app_volume_usd),
       breakdown: Array.isArray(dbSummary.app_breakdown) ? dbSummary.app_breakdown : []
     },
+    usage: {
+      top_apps: Array.isArray(dbSummary.usage_top_apps) ? dbSummary.usage_top_apps : []
+    },
     gas: {
       tx_count: Number(dbSummary.gas_tx_count || 0),
       l1_native: toDecimalString(dbSummary.gas_l1_native),

@@ -79,11 +79,46 @@ export async function getWalletSummary(wallet, from, to) {
       AND block_timestamp BETWEEN $2 AND $3;
   `;
 
-  const [bridgeRes, dexRes, gasRes, txCountRes] = await Promise.all([
+  const topAppsSql = `
+    WITH dex_usage AS (
+      ${walletNormalizedSwapCte()}
+      SELECT
+        COALESCE(NULLIF(dex_name, ''), 'Unknown DEX') AS app,
+        'dex' AS category,
+        COUNT(*) AS tx_count,
+        COALESCE(SUM(swap_volume_usd), 0) AS volume_usd
+      FROM normalized_swaps
+      GROUP BY 1, 2
+    ),
+    bridge_usage AS (
+      SELECT
+        COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
+        'bridge' AS category,
+        COUNT(*) AS tx_count,
+        COALESCE(SUM(amount_usd), 0) AS volume_usd
+      FROM bridge_transfers
+      WHERE wallet_address = $1
+        AND block_timestamp BETWEEN $2 AND $3
+        AND status = 'confirmed'
+      GROUP BY 1, 2
+    ),
+    combined AS (
+      SELECT * FROM dex_usage
+      UNION ALL
+      SELECT * FROM bridge_usage
+    )
+    SELECT app, category, tx_count, volume_usd
+    FROM combined
+    ORDER BY tx_count DESC, volume_usd DESC, app ASC
+    LIMIT 5;
+  `;
+
+  const [bridgeRes, dexRes, gasRes, txCountRes, topAppsRes] = await Promise.all([
     pool.query(bridgeSql, [wallet, from, to]),
     pool.query(dexSql, [wallet, from, to]),
     pool.query(gasSql, [wallet, from, to, env.ethChainId, env.citreaChainId]),
-    pool.query(txCountSql, [wallet, from, to, env.citreaChainId])
+    pool.query(txCountSql, [wallet, from, to, env.citreaChainId]),
+    pool.query(topAppsSql, [wallet, from, to])
   ]);
 
   const bridge = bridgeRes.rows[0] || {};
@@ -109,6 +144,7 @@ export async function getWalletSummary(wallet, from, to) {
     gas_l2_native: gas.gas_l2_native,
     gas_total_usd: gas.gas_total_usd,
     citrea_total_tx_count: txc.citrea_total_tx_count,
+    usage_top_apps: topAppsRes.rows,
     total_activity_volume_usd: String(totalActivity)
   };
 }

@@ -87,6 +87,18 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
     const explorer = await getExplorerEnhancements(wallet, from, to);
     const citreaFallback = await getCitreaExplorerActivity(wallet, from, to, { limit: 20 });
 
+    const usageMap = new Map(
+      (base.usage?.top_apps || []).map((item) => [
+        `${String(item.app || "").toLowerCase()}::${String(item.category || "").toLowerCase()}`,
+        {
+          app: item.app,
+          category: item.category,
+          tx_count: Number(item.tx_count || 0),
+          volume_usd: Number(item.volume_usd || 0)
+        }
+      ])
+    );
+
     if (explorer.enabled && typeof explorer.citrea_tx_count === "number") {
       base.citrea_total_tx_count = Math.max(
         Number(base.citrea_total_tx_count || 0),
@@ -140,6 +152,18 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       }
       if (Array.isArray(citreaFallback.app_breakdown) && citreaFallback.app_breakdown.length > 0) {
         base.apps.breakdown = citreaFallback.app_breakdown;
+        for (const item of citreaFallback.app_breakdown) {
+          const key = `${String(item.label || item.id || "unknown").toLowerCase()}::app`;
+          const existing = usageMap.get(key) || {
+            app: item.label || item.id || "Unknown App",
+            category: item.category || "app",
+            tx_count: 0,
+            volume_usd: 0
+          };
+          existing.tx_count = Math.max(existing.tx_count, Number(item.tx_count || 0));
+          existing.volume_usd = Math.max(existing.volume_usd, Number(item.volume_usd || 0));
+          usageMap.set(key, existing);
+        }
       }
       if (Number(citreaFallback.gas_total_native || 0) > Number(base.gas.l2_native || 0)) {
         base.gas.l2_native = String(citreaFallback.gas_total_native || "0");
@@ -153,6 +177,16 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
           Number(base.apps.volume_usd || 0)
       );
     }
+
+    base.usage = {
+      top_apps: [...usageMap.values()]
+        .sort((a, b) => {
+          const txDiff = Number(b.tx_count || 0) - Number(a.tx_count || 0);
+          if (txDiff !== 0) return txDiff;
+          return Number(b.volume_usd || 0) - Number(a.volume_usd || 0);
+        })
+        .slice(0, 5)
+    };
 
     base.explorer = {
       ...explorer,

@@ -3,6 +3,7 @@ const loadBtn = document.getElementById("loadBtn");
 const statusEl = document.getElementById("status");
 const bridgeSourceInfoEl = document.getElementById("bridgeSourceInfo");
 const kpiEl = document.getElementById("kpis");
+const walletTopAppsEl = document.getElementById("walletTopApps");
 
 const networkStatusEl = document.getElementById("networkStatus");
 const networkKpisEl = document.getElementById("networkKpis");
@@ -97,7 +98,6 @@ function setNetworkStatus(text, isError = false) {
 }
 
 function renderKpis(summary) {
-  const walletEthTxCount = summary.explorer?.eth_tx_count;
   const cards = [
     ["Bridge Tx Count", summary.bridge.tx_count],
     ["Bridge Inflow (USDT)", summary.bridge.inflow_usd],
@@ -105,7 +105,6 @@ function renderKpis(summary) {
     ["Bridge Value (USDT)", summary.bridge.volume_usd],
     ["Total Wallet Volume (USDT)", summary.total_activity_volume_usd],
     ["DEX Swap Count", summary.dex.swap_count],
-    ["Ethereum Tx Count", walletEthTxCount ?? 0],
     ["Citrea Tx Count", summary.citrea_total_tx_count],
   ];
 
@@ -123,6 +122,15 @@ function renderKpis(summary) {
   } else {
     bridgeSourceInfoEl.textContent = "No bridge or pinned app source detected for this wallet.";
   }
+
+  renderMetricList(walletTopAppsEl, summary.usage?.top_apps || [], (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.app}</div>
+        <div class="metric-label">${item.category} | ${money(item.volume_usd)} USDT</div>
+      </div>
+      <span class="metric-value">${money(item.tx_count)} tx</span>
+    </div>`);
 }
 
 function renderNetworkSummary(payload) {
