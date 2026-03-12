@@ -2,6 +2,7 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 import { resolveTokenUsdPrice } from "./priceService.js";
 import { buildCitreaAppSourceEntries } from "./sourceRegistry.js";
+import { getDuneCitreaCrossChecks, getDuneSourceEntry } from "./duneService.js";
 import { getNansenCitreaProbeResult, getNansenCitreaSourceEntry } from "./nansenService.js";
 
 async function fetchJson(url) {
@@ -65,8 +66,9 @@ function utcDateString(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-function buildSourceRegistry(statuses) {
+function buildSourceRegistry(statuses, duneCrossChecks) {
   const cadence = formatRefreshMinutes(env.networkRefreshMs);
+  const duneSource = getDuneSourceEntry(cadence, duneCrossChecks);
   const nansenSource = getNansenCitreaSourceEntry(cadence);
   return [
     {
@@ -190,18 +192,7 @@ function buildSourceRegistry(statuses) {
       url: null,
       usage: "Wallet bridge flows, indexed swaps and fee enrichment"
     },
-    {
-      id: "dune",
-      label: "Dune",
-      status: "manual",
-      type: "reference analytics",
-      cadence: "manual",
-      coverage: "reference",
-      confidence: "reference only",
-      integrated: false,
-      url: "https://dune.com/",
-      usage: "Potential query-based validation only; not wired without a maintained Citrea query"
-    },
+    duneSource,
     nansenSource
   ];
 }
@@ -509,7 +500,7 @@ async function getIndexedNetworkStats() {
 }
 
 export async function getNetworkSummary() {
-  const [explorer, chainTvl, bridge, dex, indexed] = await Promise.all([
+  const [explorer, chainTvl, bridge, dex, indexed, duneCrossChecks] = await Promise.all([
     getCitreascanNetworkStats().catch((error) => ({ error: `citreascan:${error.message}` })),
     getDefillamaChainTvl().catch((error) => ({ error: `defillama-chain:${error.message}` })),
     getDefillamaBridgeStats().catch((error) => ({ error: `defillama-bridge:${error.message}` })),
@@ -525,6 +516,14 @@ export async function getNetworkSummary() {
       total_gas_spent_usd: 0,
       indexed_wallet_count: 0,
       token_spend_breakdown: []
+    })),
+    getDuneCitreaCrossChecks().catch((error) => ({
+      configured: Boolean(env.duneApiKey),
+      status: "error",
+      reason: error.message,
+      checks: {},
+      metrics: {},
+      errors: [error.message]
     }))
   ]);
 
@@ -559,8 +558,9 @@ export async function getNetworkSummary() {
       defillamaBridge: bridge.error ? "error" : "ok",
       defillamaDex: dex.error ? "error" : "ok",
       indexed: indexed.error ? "error" : "ok"
-    }),
+    }, duneCrossChecks),
     reference_probes: {
+      dune: duneCrossChecks,
       nansen: getNansenCitreaProbeResult()
     },
     errors,

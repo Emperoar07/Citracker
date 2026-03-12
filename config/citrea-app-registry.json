@@ -127,15 +127,19 @@
     "status": "ok",
     "type": "stable asset app",
     "coverage": "metrics",
-    "confidence": "app route surface",
+    "confidence": "official app bundle + explorer contracts",
     "integrated": true,
     "url": "https://app.generic.money",
     "repoUrl": "https://github.com/generic-money",
-    "usage": "Tracked as a live Citrea app surface from the app hub. Current public app output does not expose a stable Citrea wallet contract map, so this entry does not affect wallet totals.",
+    "usage": "Wallet totals include Generic USD activity via pinned Citrea GUSD, sGUSD, and bridge coordinator contracts.",
     "hubCategory": "Yield Strategist",
-    "contracts": [],
+    "contracts": [
+      "0x6E810122C2B7d474Ef568bdf221ec05f2dC8063A",
+      "0xAC8c1AEB584765DB16ac3e08D4736CFcE198589B",
+      "0x4Fb03AfE959394DB9C4E312A89C6e485FB3732d1"
+    ],
     "displayUrl": null,
-    "scope": "source health only",
+    "scope": "wallet metrics",
     "apiUrl": "https://app.generic.money/"
   },
   {

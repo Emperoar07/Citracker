@@ -4,14 +4,39 @@
   "chainId": 4114,
   "registry": {
     "coverage": "metrics",
-    "scope": "source health only",
-    "confidence": "app route surface",
+    "scope": "wallet metrics",
+    "confidence": "official app bundle + explorer contracts",
     "integrated": true,
     "status": "ok",
-    "usage": "Tracked as a live Citrea app surface from the app hub. Current public app output does not expose a stable Citrea wallet contract map, so this entry does not affect wallet totals."
+    "usage": "Wallet totals include Generic USD activity via pinned Citrea GUSD, sGUSD, and bridge coordinator contracts exposed by the official app bundle and verified on the Citrea explorer."
   },
   "api": {
     "healthUrl": "https://app.generic.money/"
   },
-  "contracts": []
+  "walletMetrics": {
+    "mode": "destination-address",
+    "category": "stable asset",
+    "addresses": [
+      {
+        "address": "0x6E810122C2B7d474Ef568bdf221ec05f2dC8063A",
+        "role": "bridge_coordinator",
+        "label": "Generic USD Bridge Coordinator"
+      },
+      {
+        "address": "0xAC8c1AEB584765DB16ac3e08D4736CFcE198589B",
+        "role": "gusd_token",
+        "label": "Generic USD GUSD"
+      },
+      {
+        "address": "0x4Fb03AfE959394DB9C4E312A89C6e485FB3732d1",
+        "role": "sgusd_token",
+        "label": "Generic USD sGUSD"
+      }
+    ]
+  },
+  "contracts": [
+    "0x6E810122C2B7d474Ef568bdf221ec05f2dC8063A",
+    "0xAC8c1AEB584765DB16ac3e08D4736CFcE198589B",
+    "0x4Fb03AfE959394DB9C4E312A89C6e485FB3732d1"
+  ]
 }

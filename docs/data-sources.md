@@ -80,7 +80,7 @@ Pinned per-app metrics configs now live under `config/apps/` for apps that have 
 | Clementine | bridge tooling | Official docs | ok | metrics | `wallet metrics` via indexed official bridge contracts in `config/apps/clementine.json` |
 | Zentra | lending | Docs available | ok | metrics | `wallet metrics` via `config/apps/zentra.json` |
 | Accountable | yield | Docs available | ok | metrics | `wallet metrics` via `config/apps/accountable.json` |
-| Generic USD | stable asset app | Repo/app available | ok | metrics | `source health only` via `config/apps/generic_usd.json` |
+| Generic USD | stable asset app | Repo/app available | ok | metrics | `wallet metrics` via `config/apps/generic_usd.json` |
 | Signals | prediction market | Docs available | ok | metrics | `wallet metrics` via `config/apps/signals.json` |
 | Foresight | prediction market | Docs available | ok | metrics | `wallet metrics` via `config/apps/foresight.json` |
 | Namoshi | consumer app | Public app surface | ok | metrics | `source health only` via `config/apps/namoshi.json` |
@@ -98,8 +98,18 @@ Pinned per-app metrics configs now live under `config/apps/` for apps that have 
 
 | Source | Why not runtime today | URL |
 |---|---|---|
-| Dune | Official API exists, but it is query-driven and requires a maintained Citrea query path; no production Citrea query was confirmed in this pass | `https://dune.com/` |
+| Dune | Supported only as a pinned-query cross-check. It never overrides official explorer or indexed totals. | `https://dune.com/` |
 | Nansen | Citrea macro dashboard exists, but the official API currently rejects `citrea` as an unsupported chain value. Keep it as a manual cross-check until Nansen adds public Citrea API support. | `https://app.nansen.ai/macro/overview?chain=citrea&utm_source=twitter&utm_medium=social` |
+
+## Dune Status
+
+- `DUNE_API_KEY` plus pinned Citrea query IDs can be configured privately.
+- Supported query slots:
+  - `DUNE_QUERY_ID_CITREA_ACTIVITY`
+  - `DUNE_QUERY_ID_CITREA_FEES`
+  - `DUNE_QUERY_ID_CITREA_DEX`
+- Citracker exposes Dune results under `reference_probes.dune` when those query IDs are configured.
+- Dune remains a cross-check only and never becomes runtime truth.
 
 ## Nansen Status
 
@@ -125,5 +135,5 @@ npm run probe:nansen
 - Pricing: CoinGecko plus safe symbol mapping
 - JuiceSwap, Satsuma, and Fibrous are already reflected through tracked contracts and wallet/runtime logic
 - Every currently tracked Citrea app-hub entry now has a `config/apps/*.json` definition
-- Symbiosis, Zentra, Signals, Foresight, Accountable, and Clementine contribute to wallet totals through pinned Citrea contracts or indexed bridge surfaces
-- Atomiq, Avail Nexus, DFX, Generic USD, Namoshi, Omnihub, Rango Exchange, Squid, and Stargate are integrated as `source health only` metrics until a stable public Citrea wallet contract map is pinned
+- Symbiosis, Zentra, Signals, Foresight, Accountable, Clementine, and Generic USD contribute to wallet totals through pinned Citrea contracts or indexed bridge surfaces
+- Atomiq, Avail Nexus, DFX, Namoshi, Omnihub, Rango Exchange, Squid, and Stargate are integrated as `source health only` metrics until a stable public Citrea wallet contract map is pinned
