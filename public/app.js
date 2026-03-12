@@ -147,8 +147,8 @@ function renderNetworkSummary(payload) {
   const dex24hSource =
     metrics.dex_volume_24h_source === "indexed_live" ? "Citracker" : "DefiLlama";
   const cards = [
-    { label: "Indexed Volume (USD)", value: metrics.total_activity_volume_usd, source: "Citracker" },
-    { label: "Indexed Inflow (USD)", value: metrics.total_inflow_usd, source: "Citracker" },
+    { label: "Tracked Activity Volume (USD)", value: metrics.total_activity_volume_usd, source: "Citracker" },
+    { label: "Tracked Bridge Inflow (USD)", value: metrics.total_inflow_usd, source: "Citracker" },
     { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama" },
     { label: "Bridge TVL (USD)", value: metrics.bridge_total_usd, source: "DefiLlama" },
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
