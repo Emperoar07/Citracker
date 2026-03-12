@@ -32,7 +32,15 @@ app.get("/health", healthHandler);
 app.get("/api/health", healthHandler);
 app.use("/api/v1", router);
 app.use("/v1", router);
-app.use(express.static(publicDir));
+app.use(
+  express.static(publicDir, {
+    setHeaders(res, filePath) {
+      if (/\.(html|js|css)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "no-store");
+      }
+    }
+  })
+);
 
 function sendIndex(req, res) {
   res.sendFile(path.join(publicDir, "index.html"));

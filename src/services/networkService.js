@@ -70,6 +70,12 @@ function utcDayStartIso(date = new Date()) {
   return `${utcDateString(date)}T00:00:00.000Z`;
 }
 
+function utcNextDayStartIso(date = new Date()) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return `${utcDateString(next)}T00:00:00.000Z`;
+}
+
 function buildSourceRegistry(statuses, duneCrossChecks) {
   const cadence = formatRefreshMinutes(env.networkRefreshMs);
   const duneSource = getDuneSourceEntry(cadence, duneCrossChecks);
@@ -505,6 +511,276 @@ async function getIndexedNetworkStats() {
   };
 }
 
+async function getPublicInterestIndexedStats() {
+  const pool = getPool();
+  const dayStart = utcDayStartIso();
+  const nextDayStart = utcNextDayStartIso();
+
+  const activeWalletsSql = `
+    SELECT COUNT(DISTINCT wallet_address) AS active_wallets_today
+    FROM (
+      SELECT wallet_address
+      FROM bridge_transfers
+      WHERE status = 'confirmed'
+        AND block_timestamp >= $1::timestamptz
+        AND block_timestamp < $2::timestamptz
+      UNION
+      SELECT wallet_address
+      FROM dex_swaps
+      WHERE status = 'confirmed'
+        AND block_timestamp >= $1::timestamptz
+        AND block_timestamp < $2::timestamptz
+      UNION
+      SELECT wallet_address
+      FROM tx_fees
+      WHERE block_timestamp >= $1::timestamptz
+        AND block_timestamp < $2::timestamptz
+    ) wallet_set;
+  `;
+
+  const topBridgeRoutesSql = `
+    SELECT
+      COALESCE(NULLIF(protocol_name, ''), 'Unknown') AS route,
+      COUNT(*) AS tx_count,
+      COALESCE(SUM(amount_usd), 0) AS volume_usd
+    FROM bridge_transfers
+    WHERE status = 'confirmed'
+      AND block_timestamp >= $1::timestamptz
+      AND block_timestamp < $2::timestamptz
+    GROUP BY 1
+    ORDER BY volume_usd DESC, tx_count DESC, route ASC
+    LIMIT 6;
+  `;
+
+  const topTokensBridgedSql = `
+    SELECT
+      COALESCE(t.symbol, 'UNKNOWN') AS token,
+      COUNT(*) AS tx_count,
+      COALESCE(SUM(CASE WHEN bt.direction = 'inflow' THEN bt.amount_usd ELSE 0 END), 0) AS inflow_usd,
+      COALESCE(SUM(CASE WHEN bt.direction = 'outflow' THEN bt.amount_usd ELSE 0 END), 0) AS outflow_usd,
+      COALESCE(SUM(bt.amount_usd), 0) AS volume_usd
+    FROM bridge_transfers bt
+    LEFT JOIN tokens t ON t.id = bt.token_id
+    WHERE bt.status = 'confirmed'
+      AND bt.block_timestamp >= $1::timestamptz
+      AND bt.block_timestamp < $2::timestamptz
+    GROUP BY 1
+    ORDER BY volume_usd DESC, tx_count DESC, token ASC
+    LIMIT 6;
+  `;
+
+  const topAppsSql = `
+    WITH dex_apps AS (
+      SELECT
+        COALESCE(NULLIF(ds.dex_name, ''), 'Unknown DEX') AS app,
+        'dex' AS category,
+        COUNT(*)::bigint AS tx_count,
+        COALESCE(SUM(ds.swap_volume_usd), 0) AS volume_usd
+      FROM (
+        SELECT DISTINCT ON (chain_id, tx_hash)
+          chain_id,
+          tx_hash,
+          dex_name,
+          swap_volume_usd,
+          block_timestamp,
+          status,
+          log_index
+        FROM dex_swaps
+        WHERE status = 'confirmed'
+          AND block_timestamp >= $1::timestamptz
+          AND block_timestamp < $2::timestamptz
+        ORDER BY chain_id, tx_hash, COALESCE(log_index, 2147483647), block_timestamp DESC
+      ) ds
+      GROUP BY 1, 2
+    ),
+    bridge_apps AS (
+      SELECT
+        COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
+        'bridge' AS category,
+        COUNT(*)::bigint AS tx_count,
+        COALESCE(SUM(amount_usd), 0) AS volume_usd
+      FROM bridge_transfers
+      WHERE status = 'confirmed'
+        AND block_timestamp >= $1::timestamptz
+        AND block_timestamp < $2::timestamptz
+      GROUP BY 1, 2
+    ),
+    combined AS (
+      SELECT * FROM dex_apps
+      UNION ALL
+      SELECT * FROM bridge_apps
+    )
+    SELECT app, category, tx_count, volume_usd
+    FROM combined
+    ORDER BY tx_count DESC, volume_usd DESC, app ASC
+    LIMIT 6;
+  `;
+
+  const topAppsByVolumeSql = `
+    WITH dex_apps AS (
+      SELECT
+        COALESCE(NULLIF(ds.dex_name, ''), 'Unknown DEX') AS app,
+        'dex' AS category,
+        COUNT(*)::bigint AS tx_count,
+        COALESCE(SUM(ds.swap_volume_usd), 0) AS volume_usd
+      FROM (
+        SELECT DISTINCT ON (chain_id, tx_hash)
+          chain_id,
+          tx_hash,
+          dex_name,
+          swap_volume_usd,
+          block_timestamp,
+          status,
+          log_index
+        FROM dex_swaps
+        WHERE status = 'confirmed'
+          AND block_timestamp >= $1::timestamptz
+          AND block_timestamp < $2::timestamptz
+        ORDER BY chain_id, tx_hash, COALESCE(log_index, 2147483647), block_timestamp DESC
+      ) ds
+      GROUP BY 1, 2
+    ),
+    bridge_apps AS (
+      SELECT
+        COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
+        'bridge' AS category,
+        COUNT(*)::bigint AS tx_count,
+        COALESCE(SUM(amount_usd), 0) AS volume_usd
+      FROM bridge_transfers
+      WHERE status = 'confirmed'
+        AND block_timestamp >= $1::timestamptz
+        AND block_timestamp < $2::timestamptz
+      GROUP BY 1, 2
+    ),
+    combined AS (
+      SELECT * FROM dex_apps
+      UNION ALL
+      SELECT * FROM bridge_apps
+    )
+    SELECT app, category, tx_count, volume_usd
+    FROM combined
+    ORDER BY volume_usd DESC, tx_count DESC, app ASC
+    LIMIT 6;
+  `;
+
+  const [activeWalletsRes, topBridgeRoutesRes, topTokensBridgedRes, topAppsRes, topAppsByVolumeRes] =
+    await Promise.all([
+      pool.query(activeWalletsSql, [dayStart, nextDayStart]),
+      pool.query(topBridgeRoutesSql, [dayStart, nextDayStart]),
+      pool.query(topTokensBridgedSql, [dayStart, nextDayStart]),
+      pool.query(topAppsSql, [dayStart, nextDayStart]),
+      pool.query(topAppsByVolumeSql, [dayStart, nextDayStart])
+    ]);
+
+  return {
+    active_wallets_today: toNumber(activeWalletsRes.rows[0]?.active_wallets_today),
+    top_bridge_routes_today: topBridgeRoutesRes.rows.map((row) => ({
+      route: row.route,
+      tx_count: toNumber(row.tx_count),
+      volume_usd: toNumber(row.volume_usd)
+    })),
+    top_tokens_bridged_today: topTokensBridgedRes.rows.map((row) => ({
+      token: row.token,
+      tx_count: toNumber(row.tx_count),
+      inflow_usd: toNumber(row.inflow_usd),
+      outflow_usd: toNumber(row.outflow_usd),
+      volume_usd: toNumber(row.volume_usd)
+    })),
+    top_apps_by_tx_today: topAppsRes.rows.map((row) => ({
+      app: row.app,
+      category: row.category,
+      tx_count: toNumber(row.tx_count),
+      volume_usd: toNumber(row.volume_usd)
+    })),
+    top_apps_by_volume_today: topAppsByVolumeRes.rows.map((row) => ({
+      app: row.app,
+      category: row.category,
+      tx_count: toNumber(row.tx_count),
+      volume_usd: toNumber(row.volume_usd)
+    }))
+  };
+}
+
+async function getFailedTransactionsToday() {
+  const dayStart = new Date(utcDayStartIso());
+  let failedCount = 0;
+  let nextPageParams = null;
+  const maxPages = 80;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const url = new URL(`${env.citreascanApiUrl.replace(/\/$/, "")}/transactions`);
+    if (nextPageParams?.block_number != null) {
+      url.searchParams.set("block_number", String(nextPageParams.block_number));
+    }
+    if (nextPageParams?.index != null) {
+      url.searchParams.set("index", String(nextPageParams.index));
+    }
+    if (nextPageParams?.items_count != null) {
+      url.searchParams.set("items_count", String(nextPageParams.items_count));
+    }
+
+    const data = await fetchJson(url.toString());
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (!items.length) break;
+
+    let reachedOlderItems = false;
+    for (const item of items) {
+      const timestamp = item?.timestamp ? new Date(item.timestamp) : null;
+      if (!timestamp || Number.isNaN(timestamp.getTime())) {
+        continue;
+      }
+      if (timestamp < dayStart) {
+        reachedOlderItems = true;
+        break;
+      }
+
+      const isFailed =
+        String(item?.status || "").toLowerCase() !== "ok" ||
+        String(item?.result || "").toLowerCase() !== "success" ||
+        Boolean(item?.revert_reason) ||
+        Boolean(item?.has_error_in_internal_transactions);
+
+      if (isFailed) {
+        failedCount += 1;
+      }
+    }
+
+    if (reachedOlderItems || !data?.next_page_params) {
+      break;
+    }
+    nextPageParams = data.next_page_params;
+  }
+
+  return {
+    failed_tx_today: failedCount,
+    failed_tx_today_source: "citrea_explorer_transactions_scan"
+  };
+}
+
+async function getCachedFailedTransactionsToday() {
+  const cacheKey = `citrea:failed-transactions:${utcDateString()}`;
+
+  try {
+    const cached = await getRuntimeCache(cacheKey);
+    if (cached?.value && cached.updated_at) {
+      const ageMs = Date.now() - new Date(cached.updated_at).getTime();
+      if (Number.isFinite(ageMs) && ageMs < env.networkRefreshMs) {
+        return cached.value;
+      }
+    }
+  } catch {
+    return getFailedTransactionsToday();
+  }
+
+  const fresh = await getFailedTransactionsToday();
+  try {
+    await setRuntimeCache(cacheKey, fresh);
+  } catch {
+    return fresh;
+  }
+  return fresh;
+}
+
 export async function getNetworkGasSummary() {
   const [explorer, indexed] = await Promise.all([
     getCitreascanNetworkStats().catch((error) => ({ error: `citreascan:${error.message}` })),
@@ -542,7 +818,7 @@ export async function getNetworkGasSummary() {
 }
 
 export async function getNetworkSummary() {
-  const [explorer, chainTvl, bridge, dex, indexed, duneCrossChecks] = await Promise.all([
+  const [explorer, chainTvl, bridge, dex, indexed, publicInterest, failedToday, duneCrossChecks] = await Promise.all([
     getCitreascanNetworkStats().catch((error) => ({ error: `citreascan:${error.message}` })),
     getDefillamaChainTvl().catch((error) => ({ error: `defillama-chain:${error.message}` })),
     getDefillamaBridgeStats().catch((error) => ({ error: `defillama-bridge:${error.message}` })),
@@ -558,6 +834,19 @@ export async function getNetworkSummary() {
       total_gas_spent_usd: 0,
       indexed_wallet_count: 0,
       token_spend_breakdown: []
+    })),
+    getPublicInterestIndexedStats().catch((error) => ({
+      error: `public-interest:${error.message}`,
+      active_wallets_today: 0,
+      top_bridge_routes_today: [],
+      top_tokens_bridged_today: [],
+      top_apps_by_tx_today: [],
+      top_apps_by_volume_today: []
+    })),
+    getCachedFailedTransactionsToday().catch((error) => ({
+      error: `failed-tx:${error.message}`,
+      failed_tx_today: 0,
+      failed_tx_today_source: "unavailable"
     })),
     getDuneCitreaCrossChecks().catch((error) => ({
       configured: Boolean(env.duneApiKey),
@@ -581,7 +870,7 @@ export async function getNetworkSummary() {
         exact: false
       }));
 
-  const errors = [explorer.error, chainTvl.error, bridge.error, dex.error, indexed.error].filter(Boolean);
+  const errors = [explorer.error, chainTvl.error, bridge.error, dex.error, indexed.error, publicInterest.error, failedToday.error].filter(Boolean);
 
   return {
     mode: "live",
@@ -618,9 +907,12 @@ export async function getNetworkSummary() {
       gas_spent_today_usd: indexed.gas_spent_today_usd,
       total_users: explorer.total_users || indexed.indexed_wallet_count,
       indexed_wallet_count: indexed.indexed_wallet_count,
+      active_wallets_today: publicInterest.active_wallets_today,
       total_transactions: explorer.total_transactions || 0,
       transactions_today: liveTodayTransactions.count,
       transactions_today_date: liveTodayTransactions.date,
+      failed_tx_today: failedToday.failed_tx_today,
+      failed_tx_today_source: failedToday.failed_tx_today_source,
       transactions_today_exact: liveTodayTransactions.exact,
       latest_daily_transactions: explorer.latest_daily_transactions || explorer.transactions_today || 0,
       latest_daily_transactions_date: explorer.latest_daily_transactions_date || null,
@@ -644,7 +936,11 @@ export async function getNetworkSummary() {
       bridge_from_btc_usd: bridge.bridge_from_btc_usd || 0,
       bridge_from_evm_usd: bridge.bridge_from_evm_usd || 0,
       overall_token_spent_usd: indexed.overall_token_spent_usd,
-      token_spend_breakdown: indexed.token_spend_breakdown
+      token_spend_breakdown: indexed.token_spend_breakdown,
+      top_bridge_routes_today: publicInterest.top_bridge_routes_today,
+      top_tokens_bridged_today: publicInterest.top_tokens_bridged_today,
+      top_apps_by_tx_today: publicInterest.top_apps_by_tx_today,
+      top_apps_by_volume_today: publicInterest.top_apps_by_volume_today
     }
   };
 }

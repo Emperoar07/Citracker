@@ -13,6 +13,11 @@ const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
 const gasLiveLabelEl = document.getElementById("gasLiveLabel");
 const sourceHealthEl = document.getElementById("sourceHealth");
+const todaySnapshotEl = document.getElementById("todaySnapshot");
+const topBridgeRoutesEl = document.getElementById("topBridgeRoutes");
+const topTokensBridgedEl = document.getElementById("topTokensBridged");
+const topAppsByTxEl = document.getElementById("topAppsByTx");
+const topAppsByVolumeEl = document.getElementById("topAppsByVolume");
 
 let networkPollHandle = null;
 let gasPollHandle = null;
@@ -69,6 +74,16 @@ function shortDateLabel(value) {
   const d = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function renderMetricList(container, rows, formatter) {
+  if (!container) return;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    container.innerHTML = `<div class="metric-empty">No indexed data yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = rows.map(formatter).join("");
 }
 
 function setStatus(text, isError = false) {
@@ -142,6 +157,53 @@ function renderNetworkSummary(payload) {
         <span class="metric-value">${typeof value === "string" ? value : money(value)}</span>
       </div>`)
     .join("");
+
+  renderMetricList(todaySnapshotEl, [
+    ["Active Wallets Today (Indexed)", metrics.active_wallets_today],
+    ["Failed Tx Today", metrics.failed_tx_today],
+    ["Tx Today", metrics.transactions_today],
+    ["DEX Swap Count", metrics.total_swap_count]
+  ], ([label, value]) => `
+    <div class="metric-row">
+      <span class="metric-label">${label}</span>
+      <span class="metric-value">${money(value)}</span>
+    </div>`);
+
+  renderMetricList(topBridgeRoutesEl, metrics.top_bridge_routes_today, (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.route}</div>
+        <div class="metric-label">${money(item.tx_count)} tx</div>
+      </div>
+      <span class="metric-value">${money(item.volume_usd)} USD</span>
+    </div>`);
+
+  renderMetricList(topTokensBridgedEl, metrics.top_tokens_bridged_today, (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.token}</div>
+        <div class="metric-label">In ${money(item.inflow_usd)} | Out ${money(item.outflow_usd)}</div>
+      </div>
+      <span class="metric-value">${money(item.volume_usd)} USD</span>
+    </div>`);
+
+  renderMetricList(topAppsByTxEl, metrics.top_apps_by_tx_today, (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.app}</div>
+        <div class="metric-label">${item.category} | ${money(item.volume_usd)} USD</div>
+      </div>
+      <span class="metric-value">${money(item.tx_count)} tx</span>
+    </div>`);
+
+  renderMetricList(topAppsByVolumeEl, metrics.top_apps_by_volume_today, (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.app}</div>
+        <div class="metric-label">${item.category} | ${money(item.tx_count)} tx</div>
+      </div>
+      <span class="metric-value">${money(item.volume_usd)} USD</span>
+    </div>`);
 
   const sourceEntries = Array.isArray(payload.source_registry) && payload.source_registry.length
     ? payload.source_registry

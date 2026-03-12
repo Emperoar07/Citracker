@@ -424,6 +424,17 @@ button {
   margin-top: 12px;
 }
 
+.network-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.network-grid-tight .card {
+  margin-top: 0;
+}
+
 .metric-list {
   display: grid;
   gap: 8px;
@@ -446,6 +457,10 @@ button {
   border-bottom: 1px solid rgba(255, 248, 239, 0.07);
 }
 
+.metric-row-stack {
+  align-items: center;
+}
+
 .metric-row:last-child {
   border-bottom: 0;
 }
@@ -458,6 +473,16 @@ button {
 .metric-value {
   text-align: right;
   font-weight: 700;
+}
+
+.metric-value-left {
+  text-align: left;
+}
+
+.metric-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+  padding: 6px 0;
 }
 
 .table-scroll {
@@ -584,6 +609,10 @@ tbody tr:last-child td {
 
   .gas-banner-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .network-grid {
+    grid-template-columns: 1fr;
   }
 }
 
