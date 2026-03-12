@@ -303,6 +303,33 @@ async function enrichTokenSpendRows(rows) {
   );
 }
 
+async function enrichDex24hRows(rows) {
+  return Promise.all(
+    rows.map(async (row) => {
+      const swapVolumeUsd = toNumber(row.swap_volume_usd);
+      const tokenInUsd = toNumber(row.token_in_usd);
+      const tokenOutUsd = toNumber(row.token_out_usd);
+
+      if (swapVolumeUsd > 0) return swapVolumeUsd;
+      if (tokenInUsd > 0) return tokenInUsd;
+      if (tokenOutUsd > 0) return tokenOutUsd;
+
+      const [inPrice, outPrice] = await Promise.all([
+        row.token_in_symbol ? resolveTokenUsdPrice(row.token_in_symbol, row.block_timestamp).catch(() => null) : null,
+        row.token_out_symbol ? resolveTokenUsdPrice(row.token_out_symbol, row.block_timestamp).catch(() => null) : null
+      ]);
+
+      if (inPrice) {
+        return toNumber(row.token_in_amount) * inPrice.price;
+      }
+      if (outPrice) {
+        return toNumber(row.token_out_amount) * outPrice.price;
+      }
+      return 0;
+    })
+  );
+}
+
 async function getDefillamaBridgeStats() {
   const data = await fetchJson(`${env.defillamaApiBase}/protocol/${env.defillamaBridgeProtocol}`);
   const currentChainTvls = data?.currentChainTvls || {};
@@ -377,6 +404,7 @@ async function getIndexedNetworkStats() {
       SELECT DISTINCT ON (ds.chain_id, ds.tx_hash)
         ds.chain_id,
         ds.tx_hash,
+        ds.block_timestamp,
         ds.swap_volume_usd,
         ds.token_in_usd
       FROM dex_swaps ds
@@ -385,6 +413,7 @@ async function getIndexedNetworkStats() {
     )
     SELECT
       COUNT(*) AS total_swap_count,
+      COALESCE(SUM(CASE WHEN block_timestamp >= now() - interval '24 hours' THEN swap_volume_usd END),0) AS dex_volume_24h_usd,
       COALESCE(SUM(swap_volume_usd),0) AS total_swap_volume_usd,
       COALESCE(SUM(COALESCE(token_in_usd, swap_volume_usd)),0) AS overall_token_spent_usd
     FROM normalized_swaps;
@@ -431,12 +460,37 @@ async function getIndexedNetworkStats() {
     LIMIT 12;
   `;
 
-  const [bridgeRes, dexRes, gasRes, usersRes, tokenSpendRes] = await Promise.all([
+  const recentDexSql = `
+    WITH normalized_swaps AS (
+      SELECT DISTINCT ON (ds.chain_id, ds.tx_hash)
+        ds.chain_id,
+        ds.tx_hash,
+        ds.block_timestamp,
+        ds.token_in_amount,
+        ds.token_out_amount,
+        ds.token_in_usd,
+        ds.token_out_usd,
+        ds.swap_volume_usd,
+        t_in.symbol AS token_in_symbol,
+        t_out.symbol AS token_out_symbol
+      FROM dex_swaps ds
+      LEFT JOIN tokens t_in ON t_in.id = ds.token_in_id
+      LEFT JOIN tokens t_out ON t_out.id = ds.token_out_id
+      WHERE ds.status = 'confirmed'
+        AND ds.block_timestamp >= now() - interval '24 hours'
+      ORDER BY ds.chain_id, ds.tx_hash, COALESCE(ds.log_index, 2147483647), ds.block_timestamp DESC
+    )
+    SELECT *
+    FROM normalized_swaps;
+  `;
+
+  const [bridgeRes, dexRes, gasRes, usersRes, tokenSpendRes, recentDexRes] = await Promise.all([
     pool.query(bridgeSql),
     pool.query(dexSql),
     pool.query(gasSql),
     pool.query(usersSql),
-    pool.query(tokenSpendSql)
+    pool.query(tokenSpendSql),
+    pool.query(recentDexSql)
   ]);
 
   const bridge = bridgeRes.rows[0] || {};
@@ -446,12 +500,15 @@ async function getIndexedNetworkStats() {
 
   const tokenSpendBreakdown = await enrichTokenSpendRows(tokenSpendRes.rows);
   const enrichedTokenSpendTotal = tokenSpendBreakdown.reduce((sum, row) => sum + toNumber(row.amount_spent_usd), 0);
+  const dex24hRowValues = await enrichDex24hRows(recentDexRes.rows);
+  const dexVolume24hUsd = dex24hRowValues.reduce((sum, value) => sum + toNumber(value), 0);
 
   return {
     total_inflow_usd: toNumber(bridge.total_inflow_usd),
     total_outflow_usd: toNumber(bridge.total_outflow_usd),
     total_bridge_volume_usd: toNumber(bridge.total_bridge_volume_usd),
     total_swap_count: toNumber(dex.total_swap_count),
+    dex_volume_24h_usd: Math.max(toNumber(dex.dex_volume_24h_usd), dexVolume24hUsd),
     total_swap_volume_usd: Math.max(toNumber(dex.total_swap_volume_usd), enrichedTokenSpendTotal),
     overall_token_spent_usd: Math.max(toNumber(dex.overall_token_spent_usd), enrichedTokenSpendTotal),
     total_gas_spent_usd: toNumber(gas.total_gas_spent_usd),
@@ -541,7 +598,8 @@ export async function getNetworkSummary() {
         fast: explorer.gas_prices?.fast || 0
       },
       chain_tvl_usd: chainTvl.chain_tvl_usd || 0,
-      dex_volume_24h_usd: dex.dex_volume_24h_usd || 0,
+      dex_volume_24h_usd: indexed.dex_volume_24h_usd > 0 ? indexed.dex_volume_24h_usd : dex.dex_volume_24h_usd || 0,
+      dex_volume_24h_source: indexed.dex_volume_24h_usd > 0 ? "indexed_live" : "defillama",
       dex_volume_7d_usd: dex.dex_volume_7d_usd || 0,
       dex_volume_30d_usd: dex.dex_volume_30d_usd || 0,
       dex_volume_all_time_usd: dex.dex_volume_all_time_usd || 0,

@@ -11,7 +11,6 @@ const bridgeOriginsEl = document.getElementById("bridgeOrigins");
 const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
 const sourceHealthEl = document.getElementById("sourceHealth");
-const bridgePanelEl = document.getElementById("bridgePanel");
 
 let networkPollHandle = null;
 
@@ -96,27 +95,6 @@ function renderKpis(summary) {
     .join("");
 }
 
-function renderSummaryPanel(element, stats) {
-  element.innerHTML = stats
-    .map(
-      ([label, value]) => `
-        <div class="summary-stat">
-          <span class="summary-label">${label}</span>
-          <strong class="summary-value">${value}</strong>
-        </div>`
-    )
-    .join("");
-}
-
-function renderWalletPanels(summary) {
-  renderSummaryPanel(bridgePanelEl, [
-    ["Total Transactions", number(summary.bridge.tx_count, 0)],
-    ["In Volume (USDT)", money(summary.bridge.inflow_usd)],
-    ["Out Volume (USDT)", money(summary.bridge.outflow_usd)],
-    ["Total Value (USDT)", money(summary.bridge.volume_usd)]
-  ]);
-}
-
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
   const todayLabel = metrics.transactions_today_date
@@ -128,7 +106,7 @@ function renderNetworkSummary(payload) {
     ["Citrea TVL (USD)", metrics.chain_tvl_usd],
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
     ["Users", metrics.total_users],
-    ["Transactions", metrics.total_transactions],
+    ["Total Chain Transactions", metrics.total_transactions],
     [todayLabel, metrics.transactions_today],
     ["DEX 24h (USD)", metrics.dex_volume_24h_usd]
   ];
@@ -236,7 +214,6 @@ async function loadWalletData() {
     const summary = await fetchJsonOrThrow(`${base}/summary`);
 
     renderKpis(summary);
-    renderWalletPanels(summary);
 
     setStatus(`Loaded all-time totals for ${wallet}.`);
   } catch (error) {
