@@ -24,6 +24,11 @@ export function coerceSummaryPayload(dbSummary) {
     usage: {
       top_apps: Array.isArray(dbSummary.usage_top_apps) ? dbSummary.usage_top_apps : []
     },
+    balances: {
+      token_count: Number(dbSummary.balance_token_count || 0),
+      total_usd: toDecimalString(dbSummary.balance_total_usd),
+      top_tokens: Array.isArray(dbSummary.balance_top_tokens) ? dbSummary.balance_top_tokens : []
+    },
     gas: {
       tx_count: Number(dbSummary.gas_tx_count || 0),
       l1_native: toDecimalString(dbSummary.gas_l1_native),

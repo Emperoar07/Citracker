@@ -1,5 +1,6 @@
 import { env } from "../config.js";
 import { getPool } from "../db.js";
+import { ethers } from "ethers";
 import { resolveNativeUsdPrice, resolveTokenUsdPrice } from "./priceService.js";
 import { buildCitreaAppSourceEntries } from "./sourceRegistry.js";
 import { getDuneCitreaCrossChecks, getDuneSourceEntry } from "./duneService.js";
@@ -836,21 +837,119 @@ async function getCachedFailedTransactionsToday() {
   return fresh;
 }
 
+async function fetchTodayExplorerGasSpendExact() {
+  const startMs = Date.parse(utcDayStartIso());
+  let nextPageParams = null;
+  let totalFeeWei = 0n;
+  let txCount = 0;
+  let newestHash = null;
+
+  while (true) {
+    const url = new URL(`${env.citreascanApiUrl.replace(/\/$/, "")}/transactions`);
+    if (nextPageParams && typeof nextPageParams === "object") {
+      Object.entries(nextPageParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+          url.searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    const data = await fetchJson(url.toString());
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (!items.length) break;
+
+    let reachedOlderItems = false;
+
+    for (const tx of items) {
+      const txTimestampMs = new Date(tx?.timestamp || 0).getTime();
+      if (!Number.isFinite(txTimestampMs) || txTimestampMs < startMs) {
+        reachedOlderItems = true;
+        break;
+      }
+
+      if (!newestHash && tx?.hash) {
+        newestHash = String(tx.hash).toLowerCase();
+      }
+
+      const feeWei = BigInt(tx?.fee?.value || "0");
+      totalFeeWei += feeWei;
+      txCount += 1;
+    }
+
+    if (reachedOlderItems || !data?.next_page_params) {
+      break;
+    }
+
+    nextPageParams = data.next_page_params;
+  }
+
+  return {
+    date: utcDateString(),
+    tx_count: txCount,
+    total_fee_wei: totalFeeWei.toString(),
+    newest_hash: newestHash
+  };
+}
+
+async function getCachedTodayExplorerGasSpendExact() {
+  const cacheKey = `citrea:gas-fees:${utcDateString()}`;
+
+  try {
+    const cached = await getRuntimeCache(cacheKey);
+    if (cached?.value && cached.updated_at) {
+      const ageMs = Date.now() - new Date(cached.updated_at).getTime();
+      if (Number.isFinite(ageMs) && ageMs < 60_000) {
+        return cached.value;
+      }
+    }
+  } catch {
+    return fetchTodayExplorerGasSpendExact();
+  }
+
+  const fresh = await fetchTodayExplorerGasSpendExact();
+  try {
+    await setRuntimeCache(cacheKey, fresh);
+  } catch {
+    return fresh;
+  }
+  return fresh;
+}
+
 export async function getNetworkGasSummary() {
-  const [explorer, indexed] = await Promise.all([
+  const [explorer, indexed, exactGas] = await Promise.all([
     getCitreascanNetworkStats().catch((error) => ({ error: `citreascan:${error.message}` })),
     getIndexedNetworkStats().catch((error) => ({
       error: `indexed:${error.message}`,
       gas_spent_today_usd: 0
+    })),
+    getCachedTodayExplorerGasSpendExact().catch((error) => ({
+      error: `explorer-fees:${error.message}`,
+      total_fee_wei: "0",
+      tx_count: 0
     }))
   ]);
 
-  const errors = [explorer.error, indexed.error].filter(Boolean);
+  const errors = [explorer.error, indexed.error, exactGas.error].filter(Boolean);
   const nativePrice = await resolveNativeUsdPrice(env.citreaChainId, new Date().toISOString()).catch(() => null);
   const averageGasPriceGwei = toNumber(explorer.gas_prices?.average);
   const gasUsedToday = toNumber(explorer.gas_used_today);
   const estimatedGasSpentNative = gasUsedToday * averageGasPriceGwei * 1e-9;
   const estimatedGasSpentUsd = nativePrice ? estimatedGasSpentNative * nativePrice.price : 0;
+  const exactFeeNative = Number(ethers.formatEther(String(exactGas.total_fee_wei || "0")));
+  const exactFeeUsd = nativePrice ? exactFeeNative * nativePrice.price : 0;
+  const indexedFeeUsd = toNumber(indexed.gas_spent_today_usd);
+  const gasSpentTodayUsd = exactFeeUsd > 0
+    ? exactFeeUsd
+    : indexedFeeUsd > 0
+      ? indexedFeeUsd
+      : estimatedGasSpentUsd;
+  const gasSpentTodaySource = exactFeeUsd > 0
+    ? "live_from_explorer_fees"
+    : indexedFeeUsd > 0
+      ? "indexed_fee_rows"
+      : nativePrice
+        ? "estimated_from_explorer_gas_used"
+        : "unavailable";
   const usdPerGwei = nativePrice ? nativePrice.price * 1e-9 : 0;
 
   return {
@@ -862,8 +961,10 @@ export async function getNetworkGasSummary() {
       gas_day_date: utcDateString(),
       gas_day_reset_utc: "00:00",
       gas_used_today: gasUsedToday,
-      gas_spent_today_usd: estimatedGasSpentUsd,
-      gas_spent_today_source: nativePrice ? "estimated_from_explorer_gas_used" : "unavailable",
+      gas_spent_today_native: exactFeeNative,
+      gas_spent_today_usd: gasSpentTodayUsd,
+      gas_spent_today_source: gasSpentTodaySource,
+      gas_spent_today_tx_count: Number(exactGas.tx_count || 0),
       usd_per_gwei: usdPerGwei,
       native_token_usd: nativePrice?.price || 0,
       gas_prices: {

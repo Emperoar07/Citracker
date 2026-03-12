@@ -9,7 +9,7 @@ import {
 } from "../services/metricsService.js";
 import { getNetworkGasSummary, getNetworkSummary } from "../services/networkService.js";
 import { coerceSummaryPayload } from "../services/summarySerializer.js";
-import { getCitreaExplorerActivity, getExplorerEnhancements } from "../services/explorerService.js";
+import { getCitreaExplorerActivity, getCitreaWalletTokenBalances, getExplorerEnhancements } from "../services/explorerService.js";
 import { normalizeWallet, validateDateRange } from "../utils/validators.js";
 
 const router = express.Router();
@@ -118,8 +118,11 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
     }
     const base = coerceSummaryPayload(await getWalletSummary(wallet, from, to));
 
-    const explorer = await getExplorerEnhancements(wallet, from, to);
-    const citreaFallback = await getCitreaExplorerActivity(wallet, from, to, { limit: 20 });
+    const [explorer, citreaFallback, walletBalances] = await Promise.all([
+      getExplorerEnhancements(wallet, from, to),
+      getCitreaExplorerActivity(wallet, from, to, { limit: 20 }),
+      getCitreaWalletTokenBalances(wallet)
+    ]);
 
     const usageMap = new Map(
       (base.usage?.top_apps || []).map((item) => [
@@ -244,6 +247,19 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
           Number(base.dex.swap_volume_usd || 0) +
           Number(base.apps.volume_usd || 0)
       );
+    }
+
+    if (walletBalances?.enabled) {
+      base.balances.token_count = Math.max(
+        Number(base.balances.token_count || 0),
+        Number(walletBalances.token_count || 0)
+      );
+      if (Number(walletBalances.total_usd || 0) > Number(base.balances.total_usd || 0)) {
+        base.balances.total_usd = String(walletBalances.total_usd || "0");
+      }
+      if (Array.isArray(walletBalances.top_tokens) && walletBalances.top_tokens.length > 0) {
+        base.balances.top_tokens = walletBalances.top_tokens;
+      }
     }
 
     base.usage = {

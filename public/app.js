@@ -106,6 +106,7 @@ function renderKpis(summary) {
   const cards = [
     ["Bridge Tx Count", summary.bridge.tx_count],
     ["Bridge Total (USDT)", summary.bridge.volume_usd],
+    ["Available Token Balance (USDT)", summary.balances?.total_usd],
     ["Total Wallet Volume (USDT)", summary.total_activity_volume_usd],
     ["DEX Swap Count", summary.dex.swap_count],
     ["Citrea Tx Count", summary.citrea_total_tx_count]
@@ -270,7 +271,7 @@ function renderGasSummary(payload) {
     ["Average", `${number(gas.gas_prices?.average, 4)} gwei`],
     ["Fast", `${number(gas.gas_prices?.fast, 4)} gwei`],
     ["1 Gwei (USD/gas)", `$${number(gas.usd_per_gwei, 8)}`],
-    ["Est. Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
+    ["Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
   ]
     .map(([label, value]) => `
       <div class="gas-stat">
@@ -282,7 +283,13 @@ function renderGasSummary(payload) {
   gasPriceUpdatedAtEl.textContent = gas.gas_price_updated_at
     ? `Explorer gas update ${new Date(gas.gas_price_updated_at).toLocaleTimeString()}`
     : "Explorer gas update unavailable";
-  gasLiveLabelEl.textContent = `Gas polling every 60s | UTC reset ${gas.gas_day_reset_utc || "00:00"}`;
+  const sourceLabel =
+    gas.gas_spent_today_source === "live_from_explorer_fees"
+      ? "live fee sum"
+      : gas.gas_spent_today_source === "indexed_fee_rows"
+        ? "indexed fees"
+        : "fee estimate";
+  gasLiveLabelEl.textContent = `Gas polling every 60s | ${sourceLabel} | UTC reset ${gas.gas_day_reset_utc || "00:00"}`;
 }
 
 async function loadWalletData() {

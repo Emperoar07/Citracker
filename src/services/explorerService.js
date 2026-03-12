@@ -1,7 +1,7 @@
 import { env } from "../config.js";
 import { ethers } from "ethers";
 import { getPool } from "../db.js";
-import { resolveNativeUsdPrice, resolveTokenUsdPrice } from "./priceService.js";
+import { resolveNativeUsdPrice, resolveTokenUsdPrice, resolveTokenUsdPriceSpot } from "./priceService.js";
 import { getCitreaMetricAppConfigs } from "./sourceRegistry.js";
 
 async function fetchJson(url) {
@@ -177,6 +177,17 @@ async function fetchTransactionTokenTransfers({ baseUrl, txHash }) {
     return items;
   } catch {
     transactionTransferCache.set(normalizedHash, []);
+    return [];
+  }
+}
+
+async function fetchAddressTokenBalances(baseUrl, wallet) {
+  if (!baseUrl) return [];
+
+  try {
+    const data = await fetchJson(`${baseUrl.replace(/\/$/, "")}/addresses/${wallet}/token-balances`);
+    return Array.isArray(data) ? data : [];
+  } catch {
     return [];
   }
 }
@@ -755,6 +766,71 @@ export async function getExplorerEnhancements(wallet, fromIso, toIso) {
   }
 
   return out;
+}
+
+export async function getCitreaWalletTokenBalances(wallet) {
+  if (!env.citreascanApiUrl) {
+    return {
+      enabled: false,
+      token_count: 0,
+      total_usd: "0",
+      top_tokens: [],
+      errors: []
+    };
+  }
+
+  const rows = await fetchAddressTokenBalances(env.citreascanApiUrl, wallet);
+  const nowIso = new Date().toISOString();
+  const balances = [];
+  let totalUsd = 0;
+
+  for (const row of rows) {
+    const token = row?.token || {};
+    const symbol = token.symbol || token.name || shortAddress(token.address_hash);
+    const decimals = Number(token.decimals || 18);
+    const valueRaw = String(row?.value || "0");
+
+    let amount = 0;
+    try {
+      amount = Number(ethers.formatUnits(valueRaw, decimals));
+    } catch {
+      amount = 0;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      continue;
+    }
+
+    const exchangeRate = Number(token.exchange_rate);
+    const spotPrice = Number.isFinite(exchangeRate) && exchangeRate > 0
+      ? { price: exchangeRate, source: "explorer:exchange_rate" }
+      : await resolveTokenUsdPriceSpot(symbol).catch(() => null) ||
+        await resolveTokenUsdPrice(symbol, nowIso).catch(() => null);
+
+    const usd = spotPrice ? amount * Number(spotPrice.price || 0) : 0;
+    totalUsd += Number.isFinite(usd) ? usd : 0;
+
+    balances.push({
+      token: symbol,
+      amount: String(amount),
+      usd: Number.isFinite(usd) ? String(usd) : "0",
+      price_source: spotPrice?.source || "unpriced"
+    });
+  }
+
+  balances.sort((a, b) => {
+    const usdDiff = Number(b.usd || 0) - Number(a.usd || 0);
+    if (usdDiff !== 0) return usdDiff;
+    return Number(b.amount || 0) - Number(a.amount || 0);
+  });
+
+  return {
+    enabled: true,
+    token_count: balances.length,
+    total_usd: String(totalUsd),
+    top_tokens: balances.slice(0, 5),
+    errors: []
+  };
 }
 
 export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options = {}) {
