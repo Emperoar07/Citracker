@@ -4,6 +4,7 @@
   "chainId": 4114,
   "registry": {
     "coverage": "metrics",
+    "scope": "wallet metrics",
     "confidence": "official api + pinned contracts",
     "integrated": true,
     "status": "ok",

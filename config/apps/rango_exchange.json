@@ -1,0 +1,17 @@
+{
+  "id": "rango_exchange",
+  "label": "Rango Exchange",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "source health only",
+    "confidence": "documented surface",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Tracked as a live Citrea bridge and swap route from the app hub. Rango exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals."
+  },
+  "api": {
+    "healthUrl": "https://app.rango.exchange/tr/bridge?fromBlockchain=BTC&fromToken=BTC&toBlockchain=CITREA&toToken=syBTC--0x384157027b1cdeac4e26e3709667bb28735379bb"
+  },
+  "contracts": []
+}

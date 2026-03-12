@@ -38,11 +38,17 @@ export function getCitreaAppRegistry() {
     return {
       ...app,
       coverage: config.registry?.coverage || app.coverage,
+      scope: config.registry?.scope || app.scope || null,
       confidence: config.registry?.confidence || app.confidence,
       integrated: config.registry?.integrated ?? app.integrated,
       status: config.registry?.status || app.status,
       usage: config.registry?.usage || app.usage,
-      apiUrl: config.api?.chainsUrl || config.api?.subgraphUrl || config.api?.forwarderUrl || app.apiUrl,
+      apiUrl:
+        config.api?.chainsUrl ||
+        config.api?.subgraphUrl ||
+        config.api?.forwarderUrl ||
+        config.api?.healthUrl ||
+        app.apiUrl,
       contracts: Array.isArray(config.contracts) && config.contracts.length ? config.contracts : app.contracts
     };
   });
@@ -60,6 +66,7 @@ export function buildCitreaAppSourceEntries(refreshCadence) {
       type: app.type,
       cadence,
       coverage: app.coverage,
+      scope: app.scope || null,
       confidence: app.confidence,
       integrated: Boolean(app.integrated),
       url: primaryUrl,

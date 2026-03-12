@@ -1,0 +1,17 @@
+{
+  "id": "dfx",
+  "label": "DFX",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "source health only",
+    "confidence": "documented surface",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Tracked as a Citrea fiat tooling surface from the app hub. DFX does not expose a pinned Citrea contract surface here, so this entry does not affect wallet totals."
+  },
+  "api": {
+    "healthUrl": "https://dfx.swiss/dfx-toolbox.html"
+  },
+  "contracts": []
+}

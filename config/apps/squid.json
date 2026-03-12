@@ -1,0 +1,17 @@
+{
+  "id": "squid",
+  "label": "Squid",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "source health only",
+    "confidence": "documented surface",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Tracked as a live Citrea bridge route from the app hub. Squid exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals."
+  },
+  "api": {
+    "healthUrl": "https://app.squidrouter.com/?chains=1%2C4114&tokens=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48%2C0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "contracts": []
+}

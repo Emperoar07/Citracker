@@ -2,74 +2,89 @@
   {
     "id": "accountable",
     "label": "Accountable",
-    "status": "tracked",
+    "status": "ok",
     "type": "yield",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
     "url": "https://yield.accountable.capital/vaults/0x2667461530168502a94bC6588B6AF68b69602846",
     "displayUrl": "https://yield.accountable.capital/vaults",
     "docsUrl": "https://docs.accountable.capital/",
-    "usage": "Yield vault app listed in the Citrea app hub; contract/API mapping not yet wired into totals",
+    "usage": "Wallet totals include Accountable vault activity via the pinned Citrea vault contract.",
     "hubCategory": "Yield Strategist",
-    "contracts": []
+    "contracts": [
+      "0x2667461530168502a94bC6588B6AF68b69602846"
+    ],
+    "scope": "wallet metrics"
   },
   {
     "id": "atomiq",
     "label": "Atomiq",
-    "status": "tracked",
+    "status": "ok",
     "type": "bridge app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "app route surface",
+    "integrated": true,
     "url": "https://app.atomiq.exchange/?tokenOut=CITREA:0x0000000000000000000000000000000000000000",
     "displayUrl": "https://app.atomiq.exchange",
-    "usage": "BTC-to-Citrea route listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea bridge route from the app hub. No stable public Citrea contract surface is pinned yet, so this entry does not affect wallet totals.",
     "hubCategory": "Bridge",
-    "contracts": []
+    "contracts": [],
+    "scope": "source health only",
+    "apiUrl": "https://app.atomiq.exchange/?tokenOut=CITREA:0x0000000000000000000000000000000000000000"
   },
   {
     "id": "avail_nexus",
     "label": "Avail Nexus",
-    "status": "tracked",
+    "status": "ok",
     "type": "bridge app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "app route surface",
+    "integrated": true,
     "url": "https://fastbridge.availproject.org/citrea",
-    "usage": "Bridge route listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea bridge route from the app hub. No stable public Citrea contract surface is pinned yet, so this entry does not affect wallet totals.",
     "hubCategory": "Bridge",
     "contracts": [],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "source health only",
+    "apiUrl": "https://fastbridge.availproject.org/citrea"
   },
   {
     "id": "clementine",
     "label": "Clementine",
-    "status": "tracked",
+    "status": "ok",
     "type": "bridge tooling",
-    "coverage": "registry",
+    "coverage": "metrics",
     "confidence": "official truth",
-    "integrated": false,
+    "integrated": true,
     "url": "https://docs.citrea.xyz/developer-documentation/clementine-cli",
     "displayUrl": "clementine-cli",
-    "usage": "Citrea trust-minimized bridge tooling referenced by the app hub",
+    "usage": "Wallet bridge totals already cover Clementine and canonical Citrea bridge flows through indexed bridge contracts.",
     "hubCategory": "Bridge",
-    "contracts": []
+    "contracts": [
+      "0x41710804caB0974638E1504DB723D7bddec22e30",
+      "0xF8b5983BFa11dc763184c96065D508AE1502C030",
+      "0xDF240DC08B0FdaD1d93b74d5048871232f6BEA3d",
+      "0x3100000000000000000000000000000000000002"
+    ],
+    "scope": "wallet metrics"
   },
   {
     "id": "dfx",
     "label": "DFX",
-    "status": "tracked",
+    "status": "ok",
     "type": "fiat tooling",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "documented surface",
+    "integrated": true,
     "url": "https://dfx.swiss/",
     "docsUrl": "https://dfx.swiss/dfx-toolbox.html",
-    "usage": "Fiat on-ramp/off-ramp tooling listed in the Citrea app hub",
+    "usage": "Tracked as a Citrea fiat tooling surface from the app hub. DFX does not expose a pinned Citrea contract surface here, so this entry does not affect wallet totals.",
     "hubCategory": "Adventurer",
     "contracts": [],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "source health only",
+    "apiUrl": "https://dfx.swiss/dfx-toolbox.html"
   },
   {
     "id": "fibrous",
@@ -103,22 +118,25 @@
     "contracts": [
       "0xc2C0FD00227fB04B8F77ba06c6A3caAa147A331a"
     ],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "wallet metrics"
   },
   {
     "id": "generic_usd",
     "label": "Generic USD",
-    "status": "tracked",
+    "status": "ok",
     "type": "stable asset app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "app route surface",
+    "integrated": true,
     "url": "https://app.generic.money",
     "repoUrl": "https://github.com/generic-money",
-    "usage": "Stable asset app listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea app surface from the app hub. Current public app output does not expose a stable Citrea wallet contract map, so this entry does not affect wallet totals.",
     "hubCategory": "Yield Strategist",
     "contracts": [],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "source health only",
+    "apiUrl": "https://app.generic.money/"
   },
   {
     "id": "juiceswap",
@@ -144,45 +162,51 @@
   {
     "id": "namoshi",
     "label": "Namoshi",
-    "status": "tracked",
+    "status": "ok",
     "type": "consumer app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "app route surface",
+    "integrated": true,
     "url": "https://app.namoshi.xyz",
-    "usage": "Citrea app hub entry tracked in the registry; no public API or contract map pinned yet",
+    "usage": "Tracked as a live Citrea app surface from the app hub. No stable public Citrea contract map is pinned yet, so this entry does not affect wallet totals.",
     "hubCategory": "Adventurer",
     "contracts": [],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "source health only",
+    "apiUrl": "https://app.namoshi.xyz/"
   },
   {
     "id": "omnihub",
     "label": "Omnihub",
-    "status": "tracked",
+    "status": "ok",
     "type": "creator app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "app route surface",
+    "integrated": true,
     "url": "https://omnihub.xyz/create/citrea",
-    "usage": "Creator app listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea creator app surface from the app hub. No stable public Citrea contract map is pinned yet, so this entry does not affect wallet totals.",
     "hubCategory": "Adventurer",
     "contracts": [],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "source health only",
+    "apiUrl": "https://omnihub.xyz/create/citrea"
   },
   {
     "id": "rango_exchange",
     "label": "Rango Exchange",
-    "status": "tracked",
+    "status": "ok",
     "type": "aggregator",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "documented surface",
+    "integrated": true,
     "url": "https://app.rango.exchange/tr/bridge?fromBlockchain=BTC&fromToken=BTC&toBlockchain=CITREA&toToken=syBTC--0x384157027b1cdeac4e26e3709667bb28735379bb",
     "displayUrl": "https://app.rango.exchange/tr/bridge",
     "docsUrl": "https://docs.rango.exchange/",
-    "usage": "Cross-chain aggregator listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea bridge and swap route from the app hub. Rango exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals.",
     "hubCategory": "Adventurer",
-    "contracts": []
+    "contracts": [],
+    "scope": "source health only",
+    "apiUrl": "https://app.rango.exchange/tr/bridge?fromBlockchain=BTC&fromToken=BTC&toBlockchain=CITREA&toToken=syBTC--0x384157027b1cdeac4e26e3709667bb28735379bb"
   },
   {
     "id": "satsuma",
@@ -216,35 +240,41 @@
     "contracts": [
       "0x516312275875932ec2B53A41df4De02743131729"
     ],
-    "displayUrl": null
+    "displayUrl": null,
+    "scope": "wallet metrics",
+    "apiUrl": "https://api.goldsky.com/api/public/project_cme6kru6aowuy01tb4c9xbdrj/subgraphs/signals-v1-citrea-prod/latest/gn"
   },
   {
     "id": "squid",
     "label": "Squid",
-    "status": "tracked",
+    "status": "ok",
     "type": "bridge app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "documented surface",
+    "integrated": true,
     "url": "https://app.squidrouter.com/?chains=1%2C4114&tokens=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48%2C0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
     "displayUrl": "https://app.squidrouter.com",
-    "usage": "Cross-chain route listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea bridge route from the app hub. Squid exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals.",
     "hubCategory": "Bridge",
-    "contracts": []
+    "contracts": [],
+    "scope": "source health only",
+    "apiUrl": "https://app.squidrouter.com/?chains=1%2C4114&tokens=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48%2C0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   },
   {
     "id": "stargate",
     "label": "Stargate",
-    "status": "tracked",
+    "status": "ok",
     "type": "bridge app",
-    "coverage": "registry",
-    "confidence": "registry tracked",
-    "integrated": false,
+    "coverage": "metrics",
+    "confidence": "documented surface",
+    "integrated": true,
     "url": "https://stargate.finance/?srcChain=ethereum&srcToken=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&dstChain=citrea&dstToken=0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839",
     "displayUrl": "https://stargate.finance",
-    "usage": "Cross-chain bridge route listed in the Citrea app hub",
+    "usage": "Tracked as a live Citrea bridge route from the app hub. Stargate exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals.",
     "hubCategory": "Bridge",
-    "contracts": []
+    "contracts": [],
+    "scope": "source health only",
+    "apiUrl": "https://stargate.finance/?srcChain=ethereum&srcToken=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&dstChain=citrea&dstToken=0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839"
   },
   {
     "id": "symbiosis",
@@ -271,7 +301,8 @@
       "0x314F9213989370921c6b3b13b3E8460a1C8341d0",
       "0x503Ca86bF0be0A9Ec67EA42eaf458b7EB9432F44",
       "0x06848b52101352c3568e40DeF2df57e83648b5ad"
-    ]
+    ],
+    "scope": "wallet metrics"
   },
   {
     "id": "zentra",
@@ -291,6 +322,7 @@
       "0x4C851B65B85aF26959C1023017f5F8D310D33CDf",
       "0x6864042da4A5BBEb2a98e910599964C9d8B7B684",
       "0xd8A09eEf673e877C0eD4ac5caEa6f935D5158144"
-    ]
+    ],
+    "scope": "wallet metrics"
   }
 ]

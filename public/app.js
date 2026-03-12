@@ -192,6 +192,7 @@ function renderNetworkSummary(payload) {
           : entry.coverage === "registry"
             ? "registry tracked"
             : "reference",
+        entry.scope,
         entry.confidence
       ]
         .filter(Boolean)

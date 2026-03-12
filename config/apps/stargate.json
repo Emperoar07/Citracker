@@ -1,0 +1,17 @@
+{
+  "id": "stargate",
+  "label": "Stargate",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "source health only",
+    "confidence": "documented surface",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Tracked as a live Citrea bridge route from the app hub. Stargate exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals."
+  },
+  "api": {
+    "healthUrl": "https://stargate.finance/?srcChain=ethereum&srcToken=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&dstChain=citrea&dstToken=0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839"
+  },
+  "contracts": []
+}

@@ -1,0 +1,27 @@
+{
+  "id": "accountable",
+  "label": "Accountable",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "wallet metrics",
+    "confidence": "pinned contract metrics",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Wallet totals include Accountable vault activity via the pinned Citrea vault contract."
+  },
+  "walletMetrics": {
+    "mode": "destination-address",
+    "category": "yield",
+    "addresses": [
+      {
+        "address": "0x2667461530168502a94bC6588B6AF68b69602846",
+        "role": "vault",
+        "label": "Accountable Vault"
+      }
+    ]
+  },
+  "contracts": [
+    "0x2667461530168502a94bC6588B6AF68b69602846"
+  ]
+}

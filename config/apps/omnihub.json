@@ -1,0 +1,17 @@
+{
+  "id": "omnihub",
+  "label": "Omnihub",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "source health only",
+    "confidence": "app route surface",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Tracked as a live Citrea creator app surface from the app hub. No stable public Citrea contract map is pinned yet, so this entry does not affect wallet totals."
+  },
+  "api": {
+    "healthUrl": "https://omnihub.xyz/create/citrea"
+  },
+  "contracts": []
+}

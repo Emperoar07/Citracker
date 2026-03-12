@@ -9,6 +9,9 @@ This file separates Citrea-related data sources into production-integrated sourc
   - `metrics`: already reflected in wallet or network totals
   - `registry`: tracked in the source registry, but not yet counted in totals
   - `reference`: visible only for transparency
+- `scope` answers what kind of metric integration is actually in place:
+  - `wallet metrics`: contributes to wallet or indexed bridge totals
+  - `source health only`: treated as a live Citrea source surface in the registry, but not counted in wallet totals
 - `confidence` answers how much trust to assign:
   - `official truth`
   - `derived index`
@@ -69,21 +72,21 @@ Pinned per-app metrics configs now live under `config/apps/` for apps that have 
 | Fibrous | aggregator | Docs available | tracked | metrics | Router is already used in wallet fallback and DEX tracking |
 | Juice Swap | dex | Docs available | tracked | metrics | Routers and factories are already indexed |
 | Satsuma | dex | Docs/UI available | tracked | metrics | Factory-driven pool discovery is already indexed |
-| Symbiosis | bridge app | Yes | ok | metrics | Citrea contracts and official chain API are pinned in `config/apps/symbiosis.json` |
-| Atomiq | bridge app | No confirmed public API | tracked | registry | App-hub tracked route; not yet merged into totals |
-| Stargate | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
-| Avail Nexus | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
-| Squid | bridge app | Public app surface | tracked | registry | App-hub tracked route; not yet merged into totals |
-| Clementine | bridge tooling | Official docs | tracked | registry | Official Citrea bridge tooling reference from the app hub |
-| Zentra | lending | Docs available | ok | metrics | Citrea pool/configurator contracts are pinned in `config/apps/zentra.json` |
-| Accountable | yield | Docs available | tracked | registry | Vault app is tracked in the registry, not totals |
-| Generic USD | stable asset app | Repo/app available | tracked | registry | Stable asset app is tracked in the registry, not totals |
-| Signals | prediction market | Docs available | ok | metrics | Citrea MarketCore contract is pinned in `config/apps/signals.json` |
-| Foresight | prediction market | Docs available | ok | metrics | Citrea launchpad contract is pinned in `config/apps/foresight.json` |
-| Namoshi | consumer app | No confirmed public API | tracked | registry | App-hub tracked entry; contract/API mapping still needed |
-| Omnihub | creator app | Public app surface | tracked | registry | App-hub tracked entry; contract/API mapping still needed |
-| Rango Exchange | aggregator | Docs available | tracked | registry | App-hub tracked cross-chain aggregator, not yet merged into totals |
-| DFX | fiat tooling | UI/docs available | tracked | registry | App-hub tracked fiat tooling, not yet merged into totals |
+| Symbiosis | bridge app | Yes | ok | metrics | `wallet metrics` via `config/apps/symbiosis.json` |
+| Atomiq | bridge app | Public app surface | ok | metrics | `source health only` via `config/apps/atomiq.json` |
+| Stargate | bridge app | Public app surface | ok | metrics | `source health only` via `config/apps/stargate.json` |
+| Avail Nexus | bridge app | Public app surface | ok | metrics | `source health only` via `config/apps/avail_nexus.json` |
+| Squid | bridge app | Public app surface | ok | metrics | `source health only` via `config/apps/squid.json` |
+| Clementine | bridge tooling | Official docs | ok | metrics | `wallet metrics` via indexed official bridge contracts in `config/apps/clementine.json` |
+| Zentra | lending | Docs available | ok | metrics | `wallet metrics` via `config/apps/zentra.json` |
+| Accountable | yield | Docs available | ok | metrics | `wallet metrics` via `config/apps/accountable.json` |
+| Generic USD | stable asset app | Repo/app available | ok | metrics | `source health only` via `config/apps/generic_usd.json` |
+| Signals | prediction market | Docs available | ok | metrics | `wallet metrics` via `config/apps/signals.json` |
+| Foresight | prediction market | Docs available | ok | metrics | `wallet metrics` via `config/apps/foresight.json` |
+| Namoshi | consumer app | Public app surface | ok | metrics | `source health only` via `config/apps/namoshi.json` |
+| Omnihub | creator app | Public app surface | ok | metrics | `source health only` via `config/apps/omnihub.json` |
+| Rango Exchange | aggregator | Docs available | ok | metrics | `source health only` via `config/apps/rango_exchange.json` |
+| DFX | fiat tooling | UI/docs available | ok | metrics | `source health only` via `config/apps/dfx.json` |
 
 ## BTC-Side Reference
 
@@ -104,6 +107,6 @@ Pinned per-app metrics configs now live under `config/apps/` for apps that have 
 - Chain-wide totals: Citrea explorer + DefiLlama + indexed DB
 - Pricing: CoinGecko plus safe symbol mapping
 - JuiceSwap, Satsuma, and Fibrous are already reflected through tracked contracts and wallet/runtime logic
-- The remaining Citrea app-hub entries are now tracked in the registry without backend code edits via the JSON registry plus sync script
-- Symbiosis, Zentra, Signals, and Foresight now contribute to wallet totals through pinned Citrea contracts and app-specific fallback logic
-- Bridge, fiat, creator, and remaining app-hub entries stay out of totals until their contracts or APIs are pinned
+- Every currently tracked Citrea app-hub entry now has a `config/apps/*.json` definition
+- Symbiosis, Zentra, Signals, Foresight, Accountable, and Clementine contribute to wallet totals through pinned Citrea contracts or indexed bridge surfaces
+- Atomiq, Avail Nexus, DFX, Generic USD, Namoshi, Omnihub, Rango Exchange, Squid, and Stargate are integrated as `source health only` metrics until a stable public Citrea wallet contract map is pinned

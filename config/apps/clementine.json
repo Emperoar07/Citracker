@@ -1,0 +1,19 @@
+{
+  "id": "clementine",
+  "label": "Clementine",
+  "chainId": 4114,
+  "registry": {
+    "coverage": "metrics",
+    "scope": "wallet metrics",
+    "confidence": "official truth",
+    "integrated": true,
+    "status": "ok",
+    "usage": "Wallet bridge totals already cover Clementine and canonical Citrea bridge flows through indexed bridge contracts."
+  },
+  "contracts": [
+    "0x41710804caB0974638E1504DB723D7bddec22e30",
+    "0xF8b5983BFa11dc763184c96065D508AE1502C030",
+    "0xDF240DC08B0FdaD1d93b74d5048871232f6BEA3d",
+    "0x3100000000000000000000000000000000000002"
+  ]
+}
