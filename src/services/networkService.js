@@ -1108,8 +1108,8 @@ export async function getNetworkSummary() {
         fast: explorer.gas_prices?.fast || 0
       },
       chain_tvl_usd: chainTvl.chain_tvl_usd || 0,
-      dex_volume_24h_usd: indexed.dex_volume_24h_usd > 0 ? indexed.dex_volume_24h_usd : dex.dex_volume_24h_usd || 0,
-      dex_volume_24h_source: indexed.dex_volume_24h_usd > 0 ? "indexed_live" : "defillama",
+      dex_volume_24h_usd: dex.dex_volume_24h_usd || 0,
+      dex_volume_24h_source: "defillama",
       dex_volume_7d_usd: dex.dex_volume_7d_usd || 0,
       dex_volume_30d_usd: dex.dex_volume_30d_usd || 0,
       dex_volume_all_time_usd: dex.dex_volume_all_time_usd || 0,

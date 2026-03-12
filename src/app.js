@@ -4,12 +4,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { env } from "./config.js";
 import router from "./api/routes.js";
+import { consumeRateLimitWindow } from "./services/rateLimitService.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, "..", "public");
-const rateLimitBuckets = new Map();
 
 app.disable("x-powered-by");
 
@@ -30,26 +30,20 @@ function getRateLimitKey(req) {
   return req.ip || req.socket?.remoteAddress || "unknown";
 }
 
-function rateLimitMiddleware(req, res, next) {
+async function rateLimitMiddleware(req, res, next) {
   const now = Date.now();
   const key = getRateLimitKey(req);
-  const bucket = rateLimitBuckets.get(key);
+  const bucket = await consumeRateLimitWindow(key, now);
 
-  if (!bucket || now >= bucket.resetAt) {
-    rateLimitBuckets.set(key, {
-      count: 1,
-      resetAt: now + env.rateLimitWindowMs
-    });
-    return next();
-  }
-
-  if (bucket.count >= env.rateLimitMax) {
+  if (bucket.count > env.rateLimitMax) {
     const retryAfterSeconds = Math.max(Math.ceil((bucket.resetAt - now) / 1000), 1);
     res.setHeader("Retry-After", String(retryAfterSeconds));
     return res.status(429).json({ error: "Rate limit exceeded" });
   }
 
-  bucket.count += 1;
+  res.setHeader("X-RateLimit-Limit", String(env.rateLimitMax));
+  res.setHeader("X-RateLimit-Remaining", String(Math.max(env.rateLimitMax - bucket.count, 0)));
+  res.setHeader("X-RateLimit-Reset", String(Math.floor(bucket.resetAt / 1000)));
   return next();
 }
 
