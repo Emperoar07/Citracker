@@ -66,6 +66,10 @@ function utcDateString(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function utcDayStartIso(date = new Date()) {
+  return `${utcDateString(date)}T00:00:00.000Z`;
+}
+
 function buildSourceRegistry(statuses, duneCrossChecks) {
   const cadence = formatRefreshMinutes(env.networkRefreshMs);
   const duneSource = getDuneSourceEntry(cadence, duneCrossChecks);
@@ -403,7 +407,8 @@ async function getIndexedNetworkStats() {
 
   const gasSql = `
     SELECT
-      COALESCE(SUM(fee_usd),0) AS total_gas_spent_usd
+      COALESCE(SUM(fee_usd),0) AS total_gas_spent_usd,
+      COALESCE(SUM(CASE WHEN block_timestamp >= $1::timestamptz THEN fee_usd END),0) AS gas_spent_today_usd
     FROM tx_fees;
   `;
 
@@ -469,7 +474,7 @@ async function getIndexedNetworkStats() {
   const [bridgeRes, dexRes, gasRes, usersRes, tokenSpendRes, recentDexRes] = await Promise.all([
     pool.query(bridgeSql),
     pool.query(dexSql),
-    pool.query(gasSql),
+    pool.query(gasSql, [utcDayStartIso()]),
     pool.query(usersSql),
     pool.query(tokenSpendSql),
     pool.query(recentDexSql)
@@ -494,8 +499,39 @@ async function getIndexedNetworkStats() {
     total_swap_volume_usd: Math.max(toNumber(dex.total_swap_volume_usd), enrichedTokenSpendTotal),
     overall_token_spent_usd: Math.max(toNumber(dex.overall_token_spent_usd), enrichedTokenSpendTotal),
     total_gas_spent_usd: toNumber(gas.total_gas_spent_usd),
+    gas_spent_today_usd: toNumber(gas.gas_spent_today_usd),
     indexed_wallet_count: toNumber(users.indexed_wallet_count),
     token_spend_breakdown: tokenSpendBreakdown
+  };
+}
+
+export async function getNetworkGasSummary() {
+  const [explorer, indexed] = await Promise.all([
+    getCitreascanNetworkStats().catch((error) => ({ error: `citreascan:${error.message}` })),
+    getIndexedNetworkStats().catch((error) => ({
+      error: `indexed:${error.message}`,
+      gas_spent_today_usd: 0
+    }))
+  ]);
+
+  const errors = [explorer.error, indexed.error].filter(Boolean);
+
+  return {
+    updated_at: new Date().toISOString(),
+    refresh_ms: 60000,
+    errors,
+    gas: {
+      gas_price_updated_at: explorer.gas_price_updated_at || null,
+      gas_day_date: utcDateString(),
+      gas_day_reset_utc: "00:00",
+      gas_used_today: explorer.gas_used_today || 0,
+      gas_spent_today_usd: indexed.gas_spent_today_usd || 0,
+      gas_prices: {
+        slow: explorer.gas_prices?.slow || 0,
+        average: explorer.gas_prices?.average || 0,
+        fast: explorer.gas_prices?.fast || 0
+      }
+    }
   };
 }
 
@@ -573,6 +609,7 @@ export async function getNetworkSummary() {
       total_activity_volume_usd: indexed.total_bridge_volume_usd + indexed.total_swap_volume_usd,
       total_swap_count: indexed.total_swap_count,
       total_gas_spent_usd: indexed.total_gas_spent_usd,
+      gas_spent_today_usd: indexed.gas_spent_today_usd,
       total_users: explorer.total_users || indexed.indexed_wallet_count,
       indexed_wallet_count: indexed.indexed_wallet_count,
       total_transactions: explorer.total_transactions || 0,

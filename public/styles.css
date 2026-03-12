@@ -163,8 +163,8 @@ body {
   top: calc(100% + 10px);
   right: 0;
   z-index: 10;
-  width: min(280px, calc(100vw - 40px));
-  max-height: 320px;
+  width: min(560px, calc(100vw - 40px));
+  max-height: 360px;
   padding: 12px;
   border-radius: 18px;
   border: 1px solid rgba(255, 248, 239, 0.1);
@@ -201,6 +201,10 @@ body {
   gap: 12px;
   align-items: baseline;
   margin-bottom: 14px;
+}
+
+.gas-banner-head p {
+  margin: 4px 0 0;
 }
 
 .gas-banner-head h2 {
@@ -511,7 +515,7 @@ tbody tr:last-child td {
 }
 
 .source-entry-label {
-  max-width: 170px;
+  max-width: 320px;
 }
 
 .source-entry-label a,
@@ -537,9 +541,10 @@ tbody tr:last-child td {
 
 .source-dropdown-panel .metric-list {
   gap: 0;
-  max-height: 252px;
+  max-height: 292px;
   overflow-y: auto;
-  padding-right: 4px;
+  overflow-x: hidden;
+  padding-right: 8px;
   scrollbar-width: thin;
 }
 

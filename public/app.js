@@ -10,9 +10,11 @@ const networkLiveLabelEl = document.getElementById("networkLiveLabel");
 const bridgeOriginsEl = document.getElementById("bridgeOrigins");
 const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
+const gasLiveLabelEl = document.getElementById("gasLiveLabel");
 const sourceHealthEl = document.getElementById("sourceHealth");
 
 let networkPollHandle = null;
+let gasPollHandle = null;
 
 function formatRefreshInterval(ms) {
   const minutes = Math.max(Math.round(Number(ms || 0) / 60000), 1);
@@ -128,19 +130,6 @@ function renderNetworkSummary(payload) {
       </div>`)
     .join("");
 
-  gasPriceMetricsEl.innerHTML = [
-    ["Slow", `${number(metrics.gas_prices?.slow, 4)} gwei`],
-    ["Average", `${number(metrics.gas_prices?.average, 4)} gwei`],
-    ["Fast", `${number(metrics.gas_prices?.fast, 4)} gwei`],
-    ["Gas Used Today", number(metrics.gas_used_today, 0)]
-  ]
-    .map(([label, value]) => `
-      <div class="gas-stat">
-        <span class="gas-stat-label">${label}</span>
-        <span class="gas-stat-value">${value}</span>
-      </div>`)
-    .join("");
-
   const sourceEntries = Array.isArray(payload.source_registry) && payload.source_registry.length
     ? payload.source_registry
     : Object.entries(payload.sources || {}).map(([id, status]) => ({
@@ -187,9 +176,6 @@ function renderNetworkSummary(payload) {
     .join("");
 
   networkUpdatedAtEl.textContent = `Updated ${new Date(payload.updated_at).toLocaleString()}`;
-  gasPriceUpdatedAtEl.textContent = metrics.gas_price_updated_at
-    ? `Explorer gas update ${new Date(metrics.gas_price_updated_at).toLocaleTimeString()}`
-    : "Explorer gas update unavailable";
   networkLiveLabelEl.textContent = formatRefreshInterval(payload.refresh_ms);
   const statusText = payload.errors.length
     ? friendlyErrorMessage(payload.errors.join(" | "), "Citrea mainnet panel synced.")
@@ -197,6 +183,27 @@ function renderNetworkSummary(payload) {
   const isOnlyIndexedDbGap =
     payload.errors.length === 1 && payload.errors[0].includes("DATABASE_URL is required");
   setNetworkStatus(statusText, payload.errors.length > 0 && !isOnlyIndexedDbGap);
+}
+
+function renderGasSummary(payload) {
+  const gas = payload.gas || {};
+  gasPriceMetricsEl.innerHTML = [
+    ["Slow", `${number(gas.gas_prices?.slow, 4)} gwei`],
+    ["Average", `${number(gas.gas_prices?.average, 4)} gwei`],
+    ["Fast", `${number(gas.gas_prices?.fast, 4)} gwei`],
+    ["Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
+  ]
+    .map(([label, value]) => `
+      <div class="gas-stat">
+        <span class="gas-stat-label">${label}</span>
+        <span class="gas-stat-value">${value}</span>
+      </div>`)
+    .join("");
+
+  gasPriceUpdatedAtEl.textContent = gas.gas_price_updated_at
+    ? `Explorer gas update ${new Date(gas.gas_price_updated_at).toLocaleTimeString()}`
+    : "Explorer gas update unavailable";
+  gasLiveLabelEl.textContent = `Gas polling every 60s · UTC reset ${gas.gas_day_reset_utc || "00:00"}`;
 }
 
 async function loadWalletData() {
@@ -231,6 +238,16 @@ async function loadNetworkData() {
   }
 }
 
+async function loadGasData() {
+  try {
+    const payload = await fetchJsonOrThrow("/api/v1/network/gas");
+    renderGasSummary(payload);
+    scheduleGasPolling(payload.refresh_ms || 60000);
+  } catch {
+    scheduleGasPolling(60000);
+  }
+}
+
 function scheduleNetworkPolling(delayMs) {
   if (networkPollHandle) {
     clearTimeout(networkPollHandle);
@@ -238,5 +255,13 @@ function scheduleNetworkPolling(delayMs) {
   networkPollHandle = setTimeout(loadNetworkData, delayMs);
 }
 
+function scheduleGasPolling(delayMs) {
+  if (gasPollHandle) {
+    clearTimeout(gasPollHandle);
+  }
+  gasPollHandle = setTimeout(loadGasData, delayMs);
+}
+
 loadBtn.addEventListener("click", loadWalletData);
 loadNetworkData();
+loadGasData();

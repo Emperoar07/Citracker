@@ -7,7 +7,7 @@ import {
   getWalletSwaps,
   getWalletGas
 } from "../services/metricsService.js";
-import { getNetworkSummary } from "../services/networkService.js";
+import { getNetworkGasSummary, getNetworkSummary } from "../services/networkService.js";
 import { coerceSummaryPayload } from "../services/summarySerializer.js";
 import { getCitreaExplorerActivity, getExplorerEnhancements } from "../services/explorerService.js";
 import { normalizeWallet, validateDateRange } from "../utils/validators.js";
@@ -59,6 +59,15 @@ router.get("/network/summary", async (req, res, next) => {
   }
 });
 
+router.get("/network/gas", async (req, res, next) => {
+  try {
+    const payload = await getNetworkGasSummary();
+    return res.json(payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get("/wallet/:wallet/summary", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
@@ -78,6 +87,22 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       base.citrea_total_tx_count = Math.max(
         Number(base.citrea_total_tx_count || 0),
         Number(citreaFallback.tx_count || 0)
+      );
+      base.bridge.tx_count = Math.max(
+        Number(base.bridge.tx_count || 0),
+        Number(citreaFallback.bridge_tx_count || 0)
+      );
+      if (Number(citreaFallback.bridge_inflow_usd_total || 0) > Number(base.bridge.inflow_usd || 0)) {
+        base.bridge.inflow_usd = String(citreaFallback.bridge_inflow_usd_total || "0");
+      }
+      if (Number(citreaFallback.bridge_outflow_usd_total || 0) > Number(base.bridge.outflow_usd || 0)) {
+        base.bridge.outflow_usd = String(citreaFallback.bridge_outflow_usd_total || "0");
+      }
+      base.bridge.volume_usd = String(
+        Number(base.bridge.inflow_usd || 0) + Number(base.bridge.outflow_usd || 0)
+      );
+      base.bridge.netflow_usd = String(
+        Number(base.bridge.inflow_usd || 0) - Number(base.bridge.outflow_usd || 0)
       );
       base.gas.tx_count = Math.max(
         Number(base.gas.tx_count || 0),
