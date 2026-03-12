@@ -100,28 +100,18 @@ function setNetworkStatus(text, isError = false) {
 function renderKpis(summary) {
   const cards = [
     ["Bridge Tx Count", summary.bridge.tx_count],
-    ["Bridge Inflow (USDT)", summary.bridge.inflow_usd],
-    ["Bridge Outflow (USDT)", summary.bridge.outflow_usd],
-    ["Bridge Value (USDT)", summary.bridge.volume_usd],
+    ["Bridge Total (USDT)", summary.bridge.volume_usd],
     ["Total Wallet Volume (USDT)", summary.total_activity_volume_usd],
     ["DEX Swap Count", summary.dex.swap_count],
-    ["Citrea Tx Count", summary.citrea_total_tx_count],
+    ["Citrea Tx Count", summary.citrea_total_tx_count]
   ];
 
   kpiEl.innerHTML = cards
     .map(([label, value]) => `<div class="kpi"><div class="label">${label}</div><div class="value">${money(value)}</div></div>`)
     .join("");
 
-  const bridgeSources = Array.isArray(summary.bridge?.sources_detected) ? summary.bridge.sources_detected : [];
-  if (bridgeSources.length > 0) {
-    bridgeSourceInfoEl.textContent = `Bridge source detected: ${bridgeSources.join(", ")}`;
-  } else if (Number(summary.bridge?.tx_count || 0) > 0) {
-    bridgeSourceInfoEl.textContent = "Bridge source detected: Indexed bridge activity";
-  } else if (Number(summary.apps?.tx_count || 0) > 0) {
-    bridgeSourceInfoEl.textContent = `Pinned app activity detected: ${money(summary.apps.tx_count)} transactions`;
-  } else {
-    bridgeSourceInfoEl.textContent = "No bridge or pinned app source detected for this wallet.";
-  }
+  bridgeSourceInfoEl.textContent = "";
+  bridgeSourceInfoEl.style.display = "none";
 
   renderMetricList(walletTopAppsEl, summary.usage?.top_apps || [], (item) => `
     <div class="metric-row metric-row-stack">
