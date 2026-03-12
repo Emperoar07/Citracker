@@ -160,14 +160,14 @@ function renderNetworkSummary(payload) {
     .join("");
 
   bridgeOriginsEl.innerHTML = [
-    ["From BTC Chain (USD)", metrics.bridge_from_btc_usd],
-    ["From EVM Chains (USD)", metrics.bridge_from_evm_usd],
-    ["Bridge Volume Indexed (USD)", metrics.total_bridge_volume_usd],
-    ["DEX Volume All Time (USD)", metrics.dex_volume_all_time_usd]
+    ["Bridge TVL From BTC (USD)", "DefiLlama", metrics.bridge_from_btc_usd],
+    ["Bridge TVL From EVM (USD)", "DefiLlama", metrics.bridge_from_evm_usd],
+    ["Tracked Bridge Volume (USD)", "Citracker", metrics.total_bridge_volume_usd],
+    ["DEX Volume All Time (USD)", "DefiLlama", metrics.dex_volume_all_time_usd]
   ]
-    .map(([label, value]) => `
+    .map(([label, source, value]) => `
       <div class="metric-row">
-        <span class="metric-label">${label}</span>
+        <span class="metric-label">${label} <span class="metric-source-tag">${source}</span></span>
         <span class="metric-value">${typeof value === "string" ? value : money(value)}</span>
       </div>`)
     .join("");

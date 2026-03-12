@@ -477,6 +477,20 @@ button {
   font-size: 0.88rem;
 }
 
+.metric-source-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 248, 239, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--lime);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
 .metric-value {
   text-align: right;
   font-weight: 700;
