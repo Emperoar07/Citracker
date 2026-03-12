@@ -150,11 +150,11 @@ function renderNetworkSummary(payload) {
     { label: "Tracked Activity Volume (USD)", value: metrics.total_activity_volume_usd, source: "Citracker" },
     { label: "Tracked Bridge Inflow (USD)", value: metrics.total_inflow_usd, source: "Citracker" },
     { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama" },
-    { label: "Bridge TVL (USD)", value: metrics.bridge_total_usd, source: "DefiLlama" },
+    { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama" },
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
     { label: "Total Chain Transactions", value: metrics.total_transactions, source: "Explorer" },
-    { label: todayLabel, value: metrics.transactions_today, source: "Explorer" },
-    { label: "DEX 24h (USD)", value: metrics.dex_volume_24h_usd, source: dex24hSource }
+    { label: "Chain Transactions Today", value: metrics.transactions_today, source: "Explorer" },
+    { label: "Citrea DEX Volume 24h (USD)", value: metrics.dex_volume_24h_usd, source: dex24hSource }
   ];
 
   networkKpisEl.innerHTML = cards
