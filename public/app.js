@@ -162,7 +162,6 @@ function renderNetworkSummary(payload) {
   bridgeOriginsEl.innerHTML = [
     ["Bridge TVL From BTC (USD)", "DefiLlama", metrics.bridge_from_btc_usd],
     ["Bridge TVL From EVM (USD)", "DefiLlama", metrics.bridge_from_evm_usd],
-    ["Tracked Bridge Volume (USD)", "Citracker", metrics.total_bridge_volume_usd],
     ["DEX Volume All Time (USD)", "DefiLlama", metrics.dex_volume_all_time_usd]
   ]
     .map(([label, source, value]) => `
