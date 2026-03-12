@@ -103,17 +103,27 @@ function setNetworkStatus(text, isError = false) {
 }
 
 function renderKpis(summary) {
+  const balanceTokens = Array.isArray(summary.balances?.top_tokens)
+    ? summary.balances.top_tokens.map((item) => item.token).filter(Boolean).slice(0, 3)
+    : [];
+  const balanceMeta = balanceTokens.length ? balanceTokens.join(", ") : "No live token balances";
+
   const cards = [
-    ["Bridge Tx Count", summary.bridge.tx_count],
-    ["Bridge Total (USDT)", summary.bridge.volume_usd],
-    ["Available Token Balance (USDT)", summary.balances?.total_usd],
-    ["Total Wallet Volume (USDT)", summary.total_activity_volume_usd],
-    ["DEX Swap Count", summary.dex.swap_count],
-    ["Citrea Tx Count", summary.citrea_total_tx_count]
+    { label: "Bridge Tx Count", value: summary.bridge.tx_count },
+    { label: "Bridge Total (USDT)", value: summary.bridge.volume_usd },
+    { label: "Available Token Balance (USDT)", value: summary.balances?.total_usd, meta: `Tokens: ${balanceMeta}` },
+    { label: "Total Wallet Volume (USDT)", value: summary.total_activity_volume_usd },
+    { label: "DEX Swap Count", value: summary.dex.swap_count },
+    { label: "Citrea Tx Count", value: summary.citrea_total_tx_count }
   ];
 
   kpiEl.innerHTML = cards
-    .map(([label, value]) => `<div class="kpi"><div class="label">${label}</div><div class="value">${money(value)}</div></div>`)
+    .map((card) => `
+      <div class="kpi">
+        <div class="label">${card.label}</div>
+        <div class="value">${money(card.value)}</div>
+        ${card.meta ? `<div class="meta">${card.meta}</div>` : ""}
+      </div>`)
     .join("");
 
   bridgeSourceInfoEl.textContent = "";
