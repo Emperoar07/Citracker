@@ -26,7 +26,6 @@ function buildUrl(baseUrl, apiKey, params) {
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const tokenMetadataCache = new Map();
 const addressMetadataCache = new Map();
-const transactionDetailsCache = new Map();
 const STATIC_DEX_DESTINATIONS = new Set([
   "0x565ed3d57fe40f78a46f348c220121ae093c3cf8",
   "0x6bdea31c89e0a202ce84b5752bb2e827b39984ae",
@@ -163,23 +162,6 @@ async function fetchTransactionTokenTransfers({ baseUrl, txHash }) {
   } catch {
     transactionTransferCache.set(normalizedHash, []);
     return [];
-  }
-}
-
-async function fetchTransactionDetails(baseUrl, txHash) {
-  const normalizedHash = String(txHash || "").toLowerCase();
-  if (!normalizedHash) return null;
-  if (transactionDetailsCache.has(normalizedHash)) {
-    return transactionDetailsCache.get(normalizedHash);
-  }
-
-  try {
-    const data = await fetchJson(`${baseUrl.replace(/\/$/, "")}/transactions/${normalizedHash}`);
-    transactionDetailsCache.set(normalizedHash, data);
-    return data;
-  } catch {
-    transactionDetailsCache.set(normalizedHash, null);
-    return null;
   }
 }
 
@@ -521,27 +503,19 @@ function addressLooksBridgeLike(metadata) {
   return /hyp(?:erc20|native)|hyperlane|oft|bridge/i.test(labels);
 }
 
-function bridgeRelayMethodLooksSupported(tx) {
-  const label = [
-    tx?.method,
-    tx?.decoded_input?.method_call,
-    tx?.to?.name,
-    ...(Array.isArray(tx?.to?.implementations) ? tx.to.implementations.map((item) => item?.name) : [])
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return /bridge|process|executewithtoken|lzreceive|handle/i.test(label);
-}
-
 function transferMatchesToken(a, b) {
   const tokenA = normalizeAddress(a?.token?.address_hash || a?.token?.hash || a?.token?.address);
   const tokenB = normalizeAddress(b?.token?.address_hash || b?.token?.hash || b?.token?.address);
   return Boolean(tokenA && tokenB && tokenA === tokenB);
 }
 
-async function classifyBridgeTransfer(transfer, walletAddress, trackedBridgeDestinations, txTransfersByHash) {
+async function classifyBridgeTransfer(
+  transfer,
+  walletAddress,
+  trackedBridgeDestinations,
+  txTransfersByHash,
+  trackedDexDestinations
+) {
   const from = normalizeAddress(transfer?.from?.hash || transfer?.from);
   const to = normalizeAddress(transfer?.to?.hash || transfer?.to);
   const txHash = String(transfer?.transaction_hash || "").toLowerCase();
@@ -565,25 +539,46 @@ async function classifyBridgeTransfer(transfer, walletAddress, trackedBridgeDest
   let sourceLabel = trackedSource || "Bridge flow";
 
   if (!isBridgeLike && direction === "inflow") {
-    const txTransfers = txTransfersByHash.get(txHash) || [];
-    const walletInTransfers = txTransfers.filter(
+    const isKnownDexCounterparty =
+      Boolean(trackedDexDestinations?.all?.has(counterparty)) || STATIC_DEX_DESTINATIONS.has(counterparty);
+    if (isKnownDexCounterparty) return null;
+
+    let txTransfers = txTransfersByHash.get(txHash) || [];
+    let walletInTransfers = txTransfers.filter(
       (item) => normalizeAddress(item?.to?.hash || item?.to) === walletAddress
     );
-    const walletOutTransfers = txTransfers.filter(
+    let walletOutTransfers = txTransfers.filter(
       (item) => normalizeAddress(item?.from?.hash || item?.from) === walletAddress
     );
-    const priorRelay = txTransfers.some((item) => {
+    let priorRelay = txTransfers.some((item) => {
       const relayTo = normalizeAddress(item?.to?.hash || item?.to);
       const relayFrom = normalizeAddress(item?.from?.hash || item?.from);
       return relayTo === counterparty && relayFrom !== walletAddress && transferMatchesToken(item, transfer);
     });
-    const txDetails = await fetchTransactionDetails(env.citreascanApiUrl, txHash);
-    const txFrom = normalizeAddress(txDetails?.from?.hash || txDetails?.from);
+
+    if (!priorRelay && walletOutTransfers.length === 0 && txTransfers.length <= 2) {
+      txTransfers = await fetchTransactionTokenTransfers({
+        baseUrl: env.citreascanApiUrl,
+        txHash
+      });
+      walletInTransfers = txTransfers.filter(
+        (item) => normalizeAddress(item?.to?.hash || item?.to) === walletAddress
+      );
+      walletOutTransfers = txTransfers.filter(
+        (item) => normalizeAddress(item?.from?.hash || item?.from) === walletAddress
+      );
+      priorRelay = txTransfers.some((item) => {
+        const relayTo = normalizeAddress(item?.to?.hash || item?.to);
+        const relayFrom = normalizeAddress(item?.from?.hash || item?.from);
+        return relayTo === counterparty && relayFrom !== walletAddress && transferMatchesToken(item, transfer);
+      });
+    }
+
     const relayBridgeLike =
-      txFrom !== walletAddress &&
       walletInTransfers.length > 0 &&
       walletOutTransfers.length === 0 &&
-      (priorRelay || bridgeRelayMethodLooksSupported(txDetails));
+      txTransfers.length >= 3 &&
+      priorRelay;
 
     if (!relayBridgeLike) return null;
     sourceLabel = "Official bridge relay";
@@ -793,7 +788,8 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       transfer,
       walletAddress,
       trackedBridgeDestinations,
-      swapTransfersByHash
+      swapTransfersByHash,
+      trackedDexDestinations
     );
     if (!bridgeTransfer) continue;
 
