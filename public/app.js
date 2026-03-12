@@ -82,6 +82,34 @@ function shortDateLabel(value) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function titleCaseWords(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatTrackedName(value, type = "app") {
+  const raw = String(value || "").trim();
+  if (!raw) return type === "route" ? "Unknown Bridge" : "Unknown App";
+
+  const known = {
+    juiceswap: "JuiceSwap",
+    satsuma: "Satsuma",
+    fibrous: "Fibrous",
+    "citrea-canonical-wbtc": "Canonical WBTC Bridge",
+    "citrea-canonical-usdt": "Canonical USDT Bridge",
+    "citrea-canonical-usdc": "Canonical USDC Bridge",
+    "citrea-btc-system": "Citrea BTC System Bridge"
+  };
+
+  const direct = known[raw.toLowerCase()];
+  if (direct) return direct;
+
+  return titleCaseWords(raw.replace(/[-_]+/g, " "));
+}
+
 function renderMetricList(container, rows, formatter) {
   if (!container) return;
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -181,20 +209,20 @@ function renderNetworkSummary(payload) {
     .join("");
 
   renderMetricList(todaySnapshotEl, [
-    ["Active Wallets Today (Indexed)", metrics.active_wallets_today],
-    ["Failed Tx Today", metrics.failed_tx_today],
-    ["Tx Today", metrics.transactions_today],
-    ["DEX Swap Count Today (Indexed)", metrics.total_swap_count_today]
-  ], ([label, value]) => `
+    { label: "Tracked Active Wallets Today", value: metrics.active_wallets_today, source: "Citracker" },
+    { label: "Failed Transactions Today", value: metrics.failed_tx_today, source: "Explorer" },
+    { label: "Chain Transactions Today", value: metrics.transactions_today, source: "Explorer" },
+    { label: "Tracked DEX Swap Count Today", value: metrics.total_swap_count_today, source: "Citracker" }
+  ], (item) => `
     <div class="metric-row">
-      <span class="metric-label">${label}</span>
-      <span class="metric-value">${money(value)}</span>
+      <span class="metric-label">${item.label} <span class="metric-source-tag">${item.source}</span></span>
+      <span class="metric-value">${money(item.value)}</span>
     </div>`);
 
   renderMetricList(topBridgeRoutesEl, metrics.top_bridge_routes_today, (item) => `
     <div class="metric-row metric-row-stack">
       <div>
-        <div class="metric-value metric-value-left">${item.route}</div>
+        <div class="metric-value metric-value-left">${formatTrackedName(item.route, "route")}</div>
         <div class="metric-label">${money(item.tx_count)} tx</div>
       </div>
       <span class="metric-value">${money(item.volume_usd)} USD</span>
@@ -212,7 +240,7 @@ function renderNetworkSummary(payload) {
   renderMetricList(topAppsByTxEl, metrics.top_apps_by_tx_today, (item) => `
     <div class="metric-row metric-row-stack">
       <div>
-        <div class="metric-value metric-value-left">${item.app}</div>
+        <div class="metric-value metric-value-left">${formatTrackedName(item.app, "app")}</div>
         <div class="metric-label">${item.category} | ${money(item.volume_usd)} USD</div>
       </div>
       <span class="metric-value">${money(item.tx_count)} tx</span>
@@ -221,7 +249,7 @@ function renderNetworkSummary(payload) {
   renderMetricList(topAppsByVolumeEl, metrics.top_apps_by_volume_today, (item) => `
     <div class="metric-row metric-row-stack">
       <div>
-        <div class="metric-value metric-value-left">${item.app}</div>
+        <div class="metric-value metric-value-left">${formatTrackedName(item.app, "app")}</div>
         <div class="metric-label">${item.category} | ${money(item.tx_count)} tx</div>
       </div>
       <span class="metric-value">${money(item.volume_usd)} USD</span>
