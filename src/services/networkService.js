@@ -511,7 +511,7 @@ async function getIndexedNetworkStats() {
   };
 }
 
-async function getPublicInterestIndexedStats() {
+export async function getPublicInterestIndexedStats() {
   const pool = getPool();
   const dayStart = utcDayStartIso();
   const nextDayStart = utcNextDayStartIso();
@@ -538,35 +538,19 @@ async function getPublicInterestIndexedStats() {
     ) wallet_set;
   `;
 
-  const topBridgeRoutesSql = `
+  const bridgeRowsSql = `
     SELECT
-      COALESCE(NULLIF(protocol_name, ''), 'Unknown') AS route,
-      COUNT(*) AS tx_count,
-      COALESCE(SUM(amount_usd), 0) AS volume_usd
-    FROM bridge_transfers
-    WHERE status = 'confirmed'
-      AND block_timestamp >= $1::timestamptz
-      AND block_timestamp < $2::timestamptz
-    GROUP BY 1
-    ORDER BY volume_usd DESC, tx_count DESC, route ASC
-    LIMIT 5;
-  `;
-
-  const topTokensBridgedSql = `
-    SELECT
+      COALESCE(NULLIF(bt.protocol_name, ''), 'Unknown Bridge') AS route,
       COALESCE(t.symbol, 'UNKNOWN') AS token,
-      COUNT(*) AS tx_count,
-      COALESCE(SUM(CASE WHEN bt.direction = 'inflow' THEN bt.amount_usd ELSE 0 END), 0) AS inflow_usd,
-      COALESCE(SUM(CASE WHEN bt.direction = 'outflow' THEN bt.amount_usd ELSE 0 END), 0) AS outflow_usd,
-      COALESCE(SUM(bt.amount_usd), 0) AS volume_usd
+      bt.direction,
+      bt.amount_decimal,
+      bt.amount_usd,
+      bt.block_timestamp
     FROM bridge_transfers bt
     LEFT JOIN tokens t ON t.id = bt.token_id
     WHERE bt.status = 'confirmed'
       AND bt.block_timestamp >= $1::timestamptz
-      AND bt.block_timestamp < $2::timestamptz
-    GROUP BY 1
-    ORDER BY volume_usd DESC, tx_count DESC, token ASC
-    LIMIT 5;
+      AND bt.block_timestamp < $2::timestamptz;
   `;
 
   const dexAppsSql = `
@@ -595,27 +579,32 @@ async function getPublicInterestIndexedStats() {
     FROM normalized_swaps;
   `;
 
-  const bridgeAppsSql = `
-    SELECT
-      COALESCE(NULLIF(protocol_name, ''), 'Unknown Bridge') AS app,
-      'bridge' AS category,
-      COUNT(*)::bigint AS tx_count,
-      COALESCE(SUM(amount_usd), 0) AS volume_usd
-    FROM bridge_transfers
-    WHERE status = 'confirmed'
-      AND block_timestamp >= $1::timestamptz
-      AND block_timestamp < $2::timestamptz
-    GROUP BY 1, 2;
-  `;
-
-  const [activeWalletsRes, topBridgeRoutesRes, topTokensBridgedRes, dexAppsRes, bridgeAppsRes] =
+  const [activeWalletsRes, bridgeRowsRes, dexAppsRes] =
     await Promise.all([
       pool.query(activeWalletsSql, [dayStart, nextDayStart]),
-      pool.query(topBridgeRoutesSql, [dayStart, nextDayStart]),
-      pool.query(topTokensBridgedSql, [dayStart, nextDayStart]),
-      pool.query(dexAppsSql, [dayStart, nextDayStart]),
-      pool.query(bridgeAppsSql, [dayStart, nextDayStart])
+      pool.query(bridgeRowsSql, [dayStart, nextDayStart]),
+      pool.query(dexAppsSql, [dayStart, nextDayStart])
     ]);
+
+  const bridgeRows = await Promise.all(
+    bridgeRowsRes.rows.map(async (row) => {
+      let volumeUsd = toNumber(row.amount_usd);
+      if (volumeUsd <= 0 && row.token) {
+        const price = await resolveTokenUsdPrice(row.token, row.block_timestamp).catch(() => null);
+        if (price) {
+          volumeUsd = toNumber(row.amount_decimal) * price.price;
+        }
+      }
+
+      return {
+        route: row.route || "Unknown Bridge",
+        token: row.token || "UNKNOWN",
+        direction: row.direction || "inflow",
+        amount_decimal: toNumber(row.amount_decimal),
+        volume_usd: volumeUsd
+      };
+    })
+  );
 
   const dexAppVolumes = await Promise.all(
     dexAppsRes.rows.map(async (row) => {
@@ -661,51 +650,109 @@ async function getPublicInterestIndexedStats() {
     existing.volume_usd += Number(item.volume_usd || 0);
     appMap.set(key, existing);
   }
-  for (const row of bridgeAppsRes.rows) {
-    const key = `${String(row.app || "").toLowerCase()}::bridge`;
+
+  const routeMap = new Map();
+  const tokenMap = new Map();
+  for (const row of bridgeRows) {
+    if (toNumber(row.amount_decimal) <= 0) continue;
+
+    const routeKey = String(row.route || "Unknown Bridge").toLowerCase();
+    const existingRoute = routeMap.get(routeKey) || {
+      route: row.route || "Unknown Bridge",
+      tx_count: 0,
+      volume_usd: 0
+    };
+    existingRoute.tx_count += 1;
+    existingRoute.volume_usd += Number(row.volume_usd || 0);
+    routeMap.set(routeKey, existingRoute);
+
+    const tokenKey = String(row.token || "UNKNOWN").toLowerCase();
+    const existingToken = tokenMap.get(tokenKey) || {
+      token: row.token || "UNKNOWN",
+      tx_count: 0,
+      inflow_usd: 0,
+      outflow_usd: 0,
+      volume_usd: 0
+    };
+    existingToken.tx_count += 1;
+    if (row.direction === "outflow") {
+      existingToken.outflow_usd += Number(row.volume_usd || 0);
+    } else {
+      existingToken.inflow_usd += Number(row.volume_usd || 0);
+    }
+    existingToken.volume_usd += Number(row.volume_usd || 0);
+    tokenMap.set(tokenKey, existingToken);
+
+    const key = `${String(row.route || "Unknown Bridge").toLowerCase()}::bridge`;
     const existing = appMap.get(key) || {
-      app: row.app,
+      app: row.route || "Unknown Bridge",
       category: "bridge",
       tx_count: 0,
       volume_usd: 0
     };
-    existing.tx_count += toNumber(row.tx_count);
-    existing.volume_usd += toNumber(row.volume_usd);
+    existing.tx_count += 1;
+    existing.volume_usd += Number(row.volume_usd || 0);
     appMap.set(key, existing);
   }
 
   const combinedApps = [...appMap.values()];
+  const topBridgeRoutesToday = [...routeMap.values()]
+    .sort((a, b) => {
+      const volumeDiff = toNumber(b.volume_usd) - toNumber(a.volume_usd);
+      if (volumeDiff !== 0) return volumeDiff;
+      return toNumber(b.tx_count) - toNumber(a.tx_count);
+    })
+    .slice(0, 5);
+  const topTokensBridgedToday = [...tokenMap.values()]
+    .sort((a, b) => {
+      const volumeDiff = toNumber(b.volume_usd) - toNumber(a.volume_usd);
+      if (volumeDiff !== 0) return volumeDiff;
+      return toNumber(b.tx_count) - toNumber(a.tx_count);
+    })
+    .slice(0, 5);
+  const topAppsByTxToday = combinedApps
+    .slice()
+    .sort((a, b) => {
+      const txDiff = toNumber(b.tx_count) - toNumber(a.tx_count);
+      if (txDiff !== 0) return txDiff;
+      return toNumber(b.volume_usd) - toNumber(a.volume_usd);
+    })
+    .slice(0, 5);
+  const topAppsByVolumeToday = combinedApps
+    .slice()
+    .sort((a, b) => {
+      const volumeDiff = toNumber(b.volume_usd) - toNumber(a.volume_usd);
+      if (volumeDiff !== 0) return volumeDiff;
+      return toNumber(b.tx_count) - toNumber(a.tx_count);
+    })
+    .slice(0, 5);
 
   return {
     active_wallets_today: toNumber(activeWalletsRes.rows[0]?.active_wallets_today),
-    top_bridge_routes_today: topBridgeRoutesRes.rows.map((row) => ({
-      route: row.route,
-      tx_count: toNumber(row.tx_count),
-      volume_usd: toNumber(row.volume_usd)
+    top_bridge_routes_today: topBridgeRoutesToday.map((item) => ({
+      route: item.route,
+      tx_count: toNumber(item.tx_count),
+      volume_usd: toNumber(item.volume_usd)
     })),
-    top_tokens_bridged_today: topTokensBridgedRes.rows.map((row) => ({
-      token: row.token,
-      tx_count: toNumber(row.tx_count),
-      inflow_usd: toNumber(row.inflow_usd),
-      outflow_usd: toNumber(row.outflow_usd),
-      volume_usd: toNumber(row.volume_usd)
+    top_tokens_bridged_today: topTokensBridgedToday.map((item) => ({
+      token: item.token,
+      tx_count: toNumber(item.tx_count),
+      inflow_usd: toNumber(item.inflow_usd),
+      outflow_usd: toNumber(item.outflow_usd),
+      volume_usd: toNumber(item.volume_usd)
     })),
-    top_apps_by_tx_today: combinedApps
-      .slice()
-      .sort((a, b) => {
-        const txDiff = toNumber(b.tx_count) - toNumber(a.tx_count);
-        if (txDiff !== 0) return txDiff;
-        return toNumber(b.volume_usd) - toNumber(a.volume_usd);
-      })
-      .slice(0, 5),
-    top_apps_by_volume_today: combinedApps
-      .slice()
-      .sort((a, b) => {
-        const volumeDiff = toNumber(b.volume_usd) - toNumber(a.volume_usd);
-        if (volumeDiff !== 0) return volumeDiff;
-        return toNumber(b.tx_count) - toNumber(a.tx_count);
-      })
-      .slice(0, 5)
+    top_apps_by_tx_today: topAppsByTxToday.map((item) => ({
+      app: item.app,
+      category: item.category,
+      tx_count: toNumber(item.tx_count),
+      volume_usd: toNumber(item.volume_usd)
+    })),
+    top_apps_by_volume_today: topAppsByVolumeToday.map((item) => ({
+      app: item.app,
+      category: item.category,
+      tx_count: toNumber(item.tx_count),
+      volume_usd: toNumber(item.volume_usd)
+    }))
   };
 }
 

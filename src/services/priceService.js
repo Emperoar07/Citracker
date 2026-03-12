@@ -2,8 +2,9 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 
 const HISTORY_PRICE_CACHE = new Map();
+const SPOT_PRICE_CACHE = new Map();
 const STABLECOIN_SYMBOLS = new Set(["USDC", "USDC.E", "USDT", "USDT.E", "CTUSD", "JUSD", "SVJUSD", "GUSD"]);
-const BITCOIN_SYMBOLS = new Set(["BTC", "WBTC", "WCBTC", "CBTC", "SYBTC", "SYMBTC", "CITREA BTC", "CITREA_BTC"]);
+const BITCOIN_SYMBOLS = new Set(["BTC", "WBTC", "WBTC.E", "WCBTC", "CBTC", "SYBTC", "SYMBTC", "CITREA BTC", "CITREA_BTC"]);
 const ETHEREUM_SYMBOLS = new Set(["ETH", "WETH"]);
 
 function normalizeSymbol(symbol) {
@@ -76,12 +77,55 @@ async function fetchCoinGeckoHistory(assetId, timestamp) {
   return value;
 }
 
+async function fetchCoinGeckoSpot(assetId) {
+  const cached = SPOT_PRICE_CACHE.get(assetId);
+  if (cached && Date.now() - cached.updatedAt < 60_000) {
+    return cached.value;
+  }
+
+  const url = new URL(`${env.coinGeckoApiBase.replace(/\/$/, "")}/simple/price`);
+  url.searchParams.set("ids", assetId);
+  url.searchParams.set("vs_currencies", "usd");
+
+  const headers = {};
+  if (env.coinGeckoDemoApiKey) {
+    headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
+  }
+
+  const res = await fetch(url.toString(), { headers });
+  if (!res.ok) {
+    if (res.status === 429) {
+      return null;
+    }
+    throw new Error(`CoinGecko HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const value = Number(data?.[assetId]?.usd);
+  if (!Number.isFinite(value)) return null;
+  SPOT_PRICE_CACHE.set(assetId, { value, updatedAt: Date.now() });
+  return value;
+}
+
+export async function resolveTokenUsdPriceSpot(symbol) {
+  const asset = symbolToAsset(symbol);
+  if (!asset) return null;
+  if (asset.kind === "static") return { price: asset.price, source: asset.source };
+
+  const price = await fetchCoinGeckoSpot(asset.assetId);
+  if (price === null) return null;
+  return { price, source: `${asset.source}:spot` };
+}
+
 export async function resolveTokenUsdPrice(symbol, timestamp) {
   const asset = symbolToAsset(symbol);
   if (!asset) return null;
   if (asset.kind === "static") return { price: asset.price, source: asset.source };
 
-  const price = await fetchCoinGeckoHistory(asset.assetId, timestamp);
+  let price = await fetchCoinGeckoHistory(asset.assetId, timestamp);
+  if (price === null) {
+    price = await fetchCoinGeckoSpot(asset.assetId);
+  }
   if (price === null) return null;
   return { price, source: asset.source };
 }
