@@ -163,26 +163,25 @@ function renderNetworkSummary(payload) {
             ? "source-error"
             : "source-neutral";
       const meta = [
+        entry.coverage === "metrics"
+          ? "metrics"
+          : entry.coverage === "registry"
+            ? "registry"
+            : "reference",
         entry.type,
         entry.cadence,
-        entry.coverage === "metrics"
-          ? "metrics integrated"
-          : entry.coverage === "registry"
-            ? "registry tracked"
-            : "reference",
-        entry.scope,
         entry.confidence
       ]
         .filter(Boolean)
-        .join(" · ");
+        .join(" | ");
+
       return `
         <div class="source-entry">
           <div class="source-entry-top">
-            <span class="metric-label">${entry.url ? `<a href="${entry.url}" target="_blank" rel="noreferrer">${entry.label}</a>` : entry.label}</span>
+            <span class="metric-label source-entry-label">${entry.url ? `<a href="${entry.url}" target="_blank" rel="noreferrer">${entry.label}</a>` : entry.label}</span>
             <span class="metric-value ${statusClass}">${entry.status}</span>
           </div>
           <div class="source-entry-meta">${meta}</div>
-          <div class="source-entry-usage">${entry.usage || ""}</div>
         </div>`;
     })
     .join("");
