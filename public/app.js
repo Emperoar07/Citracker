@@ -149,7 +149,7 @@ function renderNetworkSummary(payload) {
     ["Indexed Inflow (USD)", metrics.total_inflow_usd],
     ["Citrea TVL (USD)", metrics.chain_tvl_usd],
     ["Bridge TVL (USD)", metrics.bridge_total_usd],
-    ["Users", metrics.total_users],
+    ["Total Addresses", metrics.total_users],
     ["Total Chain Transactions", metrics.total_transactions],
     [todayLabel, metrics.transactions_today],
     ["DEX 24h (USD)", metrics.dex_volume_24h_usd]
@@ -176,7 +176,7 @@ function renderNetworkSummary(payload) {
     ["Active Wallets Today (Indexed)", metrics.active_wallets_today],
     ["Failed Tx Today", metrics.failed_tx_today],
     ["Tx Today", metrics.transactions_today],
-    ["DEX Swap Count", metrics.total_swap_count]
+    ["DEX Swap Count Today (Indexed)", metrics.total_swap_count_today]
   ], ([label, value]) => `
     <div class="metric-row">
       <span class="metric-label">${label}</span>

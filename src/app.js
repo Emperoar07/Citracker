@@ -10,6 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, "..", "public");
 
+app.disable("x-powered-by");
+
 const corsOptions = env.allowedOrigins.length
   ? {
       origin(origin, callback) {
@@ -21,8 +23,18 @@ const corsOptions = env.allowedOrigins.length
     }
   : undefined;
 
-app.use(cors(corsOptions));
-app.use(express.json());
+app.use(cors({
+  methods: ["GET", "HEAD", "OPTIONS"],
+  ...corsOptions
+}));
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
+app.use(express.json({ limit: "32kb" }));
 
 function healthHandler(req, res) {
   res.json({ ok: true, mode: "live" });
@@ -51,7 +63,11 @@ app.get(/^\/(?!api\/|v1\/|health$).*/, sendIndex);
 
 app.use((err, req, res, next) => {
   const status = err.status || 500;
-  res.status(status).json({ error: err.message || "Internal server error" });
+  if (status >= 500) {
+    console.error(err);
+    return res.status(status).json({ error: "Internal server error" });
+  }
+  return res.status(status).json({ error: err.message || "Request failed" });
 });
 
 export default app;

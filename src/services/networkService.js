@@ -7,7 +7,9 @@ import { getDuneCitreaCrossChecks, getDuneSourceEntry } from "./duneService.js";
 import { getNansenCitreaProbeResult, getNansenCitreaSourceEntry } from "./nansenService.js";
 
 async function fetchJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
+  });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
@@ -638,6 +640,8 @@ export async function getPublicInterestIndexedStats() {
     })
   );
 
+  const totalSwapCountToday = dexAppsRes.rows.length;
+
   const appMap = new Map();
   for (const item of dexAppVolumes) {
     const key = `${String(item.app || "").toLowerCase()}::${item.category}`;
@@ -730,6 +734,7 @@ export async function getPublicInterestIndexedStats() {
 
   return {
     active_wallets_today: toNumber(activeWalletsRes.rows[0]?.active_wallets_today),
+    total_swap_count_today: toNumber(totalSwapCountToday),
     top_bridge_routes_today: topBridgeRoutesToday.map((item) => ({
       route: item.route,
       tx_count: toNumber(item.tx_count),
@@ -977,7 +982,7 @@ export async function getNetworkGasSummary() {
 }
 
 export async function getNetworkSummary() {
-  const [explorer, chainTvl, bridge, dex, indexed, publicInterest, failedToday, duneCrossChecks] = await Promise.all([
+  const [explorer, chainTvl, bridge, dex, indexed, publicInterest, failedToday, duneCrossChecks, gasLive] = await Promise.all([
     getCitreascanNetworkStats().catch((error) => ({ error: `citreascan:${error.message}` })),
     getDefillamaChainTvl().catch((error) => ({ error: `defillama-chain:${error.message}` })),
     getDefillamaBridgeStats().catch((error) => ({ error: `defillama-bridge:${error.message}` })),
@@ -997,6 +1002,7 @@ export async function getNetworkSummary() {
     getPublicInterestIndexedStats().catch((error) => ({
       error: `public-interest:${error.message}`,
       active_wallets_today: 0,
+      total_swap_count_today: 0,
       top_bridge_routes_today: [],
       top_tokens_bridged_today: [],
       top_apps_by_tx_today: [],
@@ -1014,6 +1020,12 @@ export async function getNetworkSummary() {
       checks: {},
       metrics: {},
       errors: [error.message]
+    })),
+    getNetworkGasSummary().catch((error) => ({
+      errors: [`network-gas:${error.message}`],
+      gas: {
+        gas_spent_today_usd: 0
+      }
     }))
   ]);
 
@@ -1029,7 +1041,16 @@ export async function getNetworkSummary() {
         exact: false
       }));
 
-  const errors = [explorer.error, chainTvl.error, bridge.error, dex.error, indexed.error, publicInterest.error, failedToday.error].filter(Boolean);
+  const errors = [
+    explorer.error,
+    chainTvl.error,
+    bridge.error,
+    dex.error,
+    indexed.error,
+    publicInterest.error,
+    failedToday.error,
+    ...(Array.isArray(gasLive.errors) ? gasLive.errors : [])
+  ].filter(Boolean);
 
   return {
     mode: "live",
@@ -1063,10 +1084,11 @@ export async function getNetworkSummary() {
       total_activity_volume_usd: indexed.total_bridge_volume_usd + indexed.total_swap_volume_usd,
       total_swap_count: indexed.total_swap_count,
       total_gas_spent_usd: indexed.total_gas_spent_usd,
-      gas_spent_today_usd: indexed.gas_spent_today_usd,
+      gas_spent_today_usd: gasLive.gas?.gas_spent_today_usd || 0,
       total_users: explorer.total_users || indexed.indexed_wallet_count,
       indexed_wallet_count: indexed.indexed_wallet_count,
       active_wallets_today: publicInterest.active_wallets_today,
+      total_swap_count_today: publicInterest.total_swap_count_today,
       total_transactions: explorer.total_transactions || 0,
       transactions_today: liveTodayTransactions.count,
       transactions_today_date: liveTodayTransactions.date,

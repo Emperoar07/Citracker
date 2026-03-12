@@ -44,5 +44,6 @@ export const env = {
   nansenApiBase: cleanUrl(process.env.NANSEN_API_BASE, "https://api.nansen.ai"),
   nansenApiKey: cleanString(process.env.NANSEN_API_KEY),
   networkRefreshMs: Number(process.env.NETWORK_REFRESH_MS || 300000),
+  externalFetchTimeoutMs: Number(process.env.EXTERNAL_FETCH_TIMEOUT_MS || 15000),
   allowedOrigins: cleanString(process.env.ALLOWED_ORIGINS).split(",").map((s) => s.trim()).filter(Boolean)
 };

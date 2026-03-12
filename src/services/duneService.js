@@ -11,7 +11,8 @@ async function fetchDuneLatestResult(queryId) {
   const response = await fetch(`${env.duneApiBase}/query/${queryId}/results?limit=1`, {
     headers: {
       "X-Dune-API-Key": env.duneApiKey
-    }
+    },
+    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
   });
 
   if (!response.ok) {

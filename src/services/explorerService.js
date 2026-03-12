@@ -5,7 +5,9 @@ import { resolveNativeUsdPrice, resolveTokenUsdPrice, resolveTokenUsdPriceSpot }
 import { getCitreaMetricAppConfigs } from "./sourceRegistry.js";
 
 async function fetchJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
+  });
   if (!res.ok) {
     throw new Error(`Explorer HTTP ${res.status}`);
   }

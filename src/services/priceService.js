@@ -61,7 +61,10 @@ async function fetchCoinGeckoHistory(assetId, timestamp) {
     headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
   }
 
-  const res = await fetch(url.toString(), { headers });
+  const res = await fetch(url.toString(), {
+    headers,
+    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
+  });
   if (!res.ok) {
     if (res.status === 429) {
       HISTORY_PRICE_CACHE.set(cacheKey, null);
@@ -92,7 +95,10 @@ async function fetchCoinGeckoSpot(assetId) {
     headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
   }
 
-  const res = await fetch(url.toString(), { headers });
+  const res = await fetch(url.toString(), {
+    headers,
+    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
+  });
   if (!res.ok) {
     if (res.status === 429) {
       return null;
