@@ -57,6 +57,22 @@ function shortAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function formatTrackedLabel(value) {
+  const key = String(value || "").trim().toLowerCase();
+  const aliases = {
+    fibrous: "Fibrous",
+    juiceswap: "JuiceSwap",
+    "juiceswap-v2": "JuiceSwap V2",
+    satsuma: "Satsuma",
+    symbiosis: "Symbiosis",
+    generic_usd: "Generic USD"
+  };
+  if (aliases[key]) return aliases[key];
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function normalizeAddress(value) {
   if (!value) return null;
   if (typeof value === "string") return value.toLowerCase();
@@ -232,7 +248,7 @@ async function getTrackedDexDestinations() {
     if (!normalized) continue;
     tracked.add(normalized);
     if (row.dex_name) {
-      labels.set(normalized, row.dex_name);
+      labels.set(normalized, formatTrackedLabel(row.dex_name));
     }
     if (String(row.contract_role || "").toLowerCase() === "router") {
       routers.add(normalized);
@@ -451,6 +467,28 @@ function getSwapClassification(
     methodHasSwapKeyword,
     routerOneSidedSwap
   };
+}
+
+function getSwapAttributionLabels(classification, txTransfers, trackedRegistry) {
+  const labels = new Set();
+  const primaryLabel =
+    trackedRegistry?.labels?.get(classification?.destination) ||
+    STATIC_DEX_LABELS.get(classification?.destination) ||
+    null;
+  if (primaryLabel) labels.add(primaryLabel);
+
+  for (const transfer of txTransfers || []) {
+    for (const candidate of [
+      normalizeAddress(transfer?.from?.hash || transfer?.from),
+      normalizeAddress(transfer?.to?.hash || transfer?.to)
+    ]) {
+      if (!candidate) continue;
+      const label = trackedRegistry?.labels?.get(candidate) || STATIC_DEX_LABELS.get(candidate);
+      if (label) labels.add(label);
+    }
+  }
+
+  return [...labels];
 }
 
 function getAppClassification(tx, walletAddress, txTransfers, trackedApps) {
@@ -877,6 +915,20 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
         tx?.to?.name ||
         tx?.method ||
         "swap";
+      let attributionLabels = getSwapAttributionLabels(classification, txTransfers, trackedDexDestinations);
+      if (
+        trackedDexDestinations?.routers?.has(classification.destination) &&
+        attributionLabels.length <= 1
+      ) {
+        const fullTxTransfers = await fetchTransactionTokenTransfers({
+          baseUrl: env.citreascanApiUrl,
+          txHash: tx.hash
+        });
+        const expandedLabels = getSwapAttributionLabels(classification, fullTxTransfers, trackedDexDestinations);
+        if (expandedLabels.length > attributionLabels.length) {
+          attributionLabels = expandedLabels;
+        }
+      }
 
       if (swapVolumeUsd !== null) {
         swapVolumeUsdTotal += swapVolumeUsd;
@@ -885,6 +937,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       if (swapItems.length < limit) {
         swapItems.push({
           dex: dexLabel,
+          attribution_labels: attributionLabels,
           token_in: exactInput?.symbol || tokenInMeta.symbol,
           token_out: exactOutput?.symbol || tokenOutMeta.symbol,
           token_in_amount: String(exactInput?.amount ?? fallbackInputAmount),

@@ -804,6 +804,7 @@ export async function getNetworkGasSummary() {
   const gasUsedToday = toNumber(explorer.gas_used_today);
   const estimatedGasSpentNative = gasUsedToday * averageGasPriceGwei * 1e-9;
   const estimatedGasSpentUsd = nativePrice ? estimatedGasSpentNative * nativePrice.price : 0;
+  const usdPerGwei = nativePrice ? nativePrice.price * 1e-9 : 0;
 
   return {
     updated_at: new Date().toISOString(),
@@ -816,6 +817,8 @@ export async function getNetworkGasSummary() {
       gas_used_today: gasUsedToday,
       gas_spent_today_usd: estimatedGasSpentUsd,
       gas_spent_today_source: nativePrice ? "estimated_from_explorer_gas_used" : "unavailable",
+      usd_per_gwei: usdPerGwei,
+      native_token_usd: nativePrice?.price || 0,
       gas_prices: {
         slow: explorer.gas_prices?.slow || 0,
         average: explorer.gas_prices?.average || 0,

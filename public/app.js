@@ -37,7 +37,12 @@ function friendlyErrorMessage(message, fallback) {
 }
 
 async function fetchJsonOrThrow(url) {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "cache-control": "no-cache"
+    }
+  });
   const text = await response.text();
   let payload = null;
 
@@ -117,7 +122,7 @@ function renderKpis(summary) {
     <div class="metric-row metric-row-stack">
       <div>
         <div class="metric-value metric-value-left">${item.app}</div>
-        <div class="metric-label">${item.category} | ${money(item.volume_usd)} USDT</div>
+        <div class="metric-label">${item.category} | ${money(item.volume_usd)} USDT touched</div>
       </div>
       <span class="metric-value">${money(item.tx_count)} tx</span>
     </div>`);
@@ -264,6 +269,7 @@ function renderGasSummary(payload) {
     ["Slow", `${number(gas.gas_prices?.slow, 4)} gwei`],
     ["Average", `${number(gas.gas_prices?.average, 4)} gwei`],
     ["Fast", `${number(gas.gas_prices?.fast, 4)} gwei`],
+    ["1 Gwei (USD/gas)", `$${number(gas.usd_per_gwei, 8)}`],
     ["Est. Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
   ]
     .map(([label, value]) => `

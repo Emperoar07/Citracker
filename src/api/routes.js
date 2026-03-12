@@ -15,6 +15,8 @@ import { normalizeWallet, validateDateRange } from "../utils/validators.js";
 const router = express.Router();
 const ALL_TIME_FROM = "1970-01-01T00:00:00.000Z";
 const ALL_TIME_TO = "2100-01-01T00:00:00.000Z";
+const WALLET_SUMMARY_CACHE_TTL_MS = 60_000;
+const walletSummaryCache = new Map();
 
 const rangeQuerySchema = z.object({
   from: z.string().optional(),
@@ -50,6 +52,33 @@ function getWalletOrThrow(wallet) {
   return normalized;
 }
 
+function getWalletSummaryCacheKey(wallet, from, to) {
+  return `${wallet}:${from}:${to}`;
+}
+
+function getCachedWalletSummary(cacheKey) {
+  const entry = walletSummaryCache.get(cacheKey);
+  if (!entry) return null;
+  if (Date.now() - entry.createdAt > WALLET_SUMMARY_CACHE_TTL_MS) {
+    walletSummaryCache.delete(cacheKey);
+    return null;
+  }
+  return entry.payload;
+}
+
+function setCachedWalletSummary(cacheKey, payload) {
+  walletSummaryCache.set(cacheKey, {
+    createdAt: Date.now(),
+    payload
+  });
+
+  for (const [key, entry] of walletSummaryCache.entries()) {
+    if (Date.now() - entry.createdAt > WALLET_SUMMARY_CACHE_TTL_MS) {
+      walletSummaryCache.delete(key);
+    }
+  }
+}
+
 function normalizeBridgeSourceLabel(source) {
   const value = String(source || "").toLowerCase();
   if (!value) return null;
@@ -82,6 +111,11 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
   try {
     const wallet = getWalletOrThrow(req.params.wallet);
     const { from, to, isAllTime } = getRangeOrDefault(req.query);
+    const cacheKey = getWalletSummaryCacheKey(wallet, from, to);
+    const cached = getCachedWalletSummary(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
     const base = coerceSummaryPayload(await getWalletSummary(wallet, from, to));
 
     const explorer = await getExplorerEnhancements(wallet, from, to);
@@ -168,17 +202,23 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       if (Array.isArray(citreaFallback.swap_items) && citreaFallback.swap_items.length > 0) {
         const swapUsage = new Map();
         for (const item of citreaFallback.swap_items) {
-          const app = item.dex || "Unknown DEX";
-          const key = `${String(app).toLowerCase()}::dex`;
-          const existing = swapUsage.get(key) || {
-            app,
-            category: "dex",
-            tx_count: 0,
-            volume_usd: 0
-          };
-          existing.tx_count += 1;
-          existing.volume_usd += Number(item.swap_volume_usd || 0);
-          swapUsage.set(key, existing);
+          const labels = Array.isArray(item.attribution_labels) && item.attribution_labels.length
+            ? item.attribution_labels
+            : [item.dex || "Unknown DEX"];
+
+          for (const label of labels) {
+            const app = label || "Unknown DEX";
+            const key = `${String(app).toLowerCase()}::dex`;
+            const existing = swapUsage.get(key) || {
+              app,
+              category: "dex",
+              tx_count: 0,
+              volume_usd: 0
+            };
+            existing.tx_count += 1;
+            existing.volume_usd += Number(item.swap_volume_usd || 0);
+            swapUsage.set(key, existing);
+          }
         }
 
         for (const [key, item] of swapUsage.entries()) {
@@ -221,6 +261,7 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       citrea_activity_fallback: Boolean(citreaFallback?.enabled)
     };
     base.is_all_time = isAllTime;
+    setCachedWalletSummary(cacheKey, base);
     return res.json(base);
   } catch (err) {
     return next(err);
