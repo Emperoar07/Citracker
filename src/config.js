@@ -10,6 +10,12 @@ function cleanUrl(value, fallback = "") {
   return cleanString(value, fallback).replace(/[\r\n]+/g, "");
 }
 
+const defaultAllowedOrigins = [
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "https://citracker.vercel.app"
+];
+
 export const env = {
   port: Number(process.env.PORT || 8080),
   databaseUrl: cleanString(process.env.DATABASE_URL),
@@ -45,5 +51,13 @@ export const env = {
   nansenApiKey: cleanString(process.env.NANSEN_API_KEY),
   networkRefreshMs: Number(process.env.NETWORK_REFRESH_MS || 300000),
   externalFetchTimeoutMs: Number(process.env.EXTERNAL_FETCH_TIMEOUT_MS || 15000),
-  allowedOrigins: cleanString(process.env.ALLOWED_ORIGINS).split(",").map((s) => s.trim()).filter(Boolean)
+  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000),
+  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 120),
+  allowedOrigins: (() => {
+    const configured = cleanString(process.env.ALLOWED_ORIGINS)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return configured.length ? configured : defaultAllowedOrigins;
+  })()
 };

@@ -9,19 +9,49 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, "..", "public");
+const rateLimitBuckets = new Map();
 
 app.disable("x-powered-by");
 
-const corsOptions = env.allowedOrigins.length
-  ? {
-      origin(origin, callback) {
-        if (!origin || env.allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error("CORS origin not allowed"));
-      }
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || env.allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-  : undefined;
+    return callback(Object.assign(new Error("CORS origin not allowed"), { status: 403 }));
+  }
+};
+
+function getRateLimitKey(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+function rateLimitMiddleware(req, res, next) {
+  const now = Date.now();
+  const key = getRateLimitKey(req);
+  const bucket = rateLimitBuckets.get(key);
+
+  if (!bucket || now >= bucket.resetAt) {
+    rateLimitBuckets.set(key, {
+      count: 1,
+      resetAt: now + env.rateLimitWindowMs
+    });
+    return next();
+  }
+
+  if (bucket.count >= env.rateLimitMax) {
+    const retryAfterSeconds = Math.max(Math.ceil((bucket.resetAt - now) / 1000), 1);
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    return res.status(429).json({ error: "Rate limit exceeded" });
+  }
+
+  bucket.count += 1;
+  return next();
+}
 
 app.use(cors({
   methods: ["GET", "HEAD", "OPTIONS"],
@@ -35,6 +65,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "32kb" }));
+app.use("/api/v1", rateLimitMiddleware);
+app.use("/v1", rateLimitMiddleware);
 
 function healthHandler(req, res) {
   res.json({ ok: true, mode: "live" });

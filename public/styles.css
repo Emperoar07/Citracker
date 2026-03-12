@@ -491,6 +491,10 @@ button {
   vertical-align: middle;
 }
 
+.metric-source-tag-inline {
+  margin-left: 8px;
+}
+
 .metric-value {
   text-align: right;
   font-weight: 700;
