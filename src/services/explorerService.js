@@ -36,6 +36,7 @@ const STATIC_ROUTER_DESTINATIONS = new Set(STATIC_DEX_DESTINATIONS);
 let trackedDexCache = { value: null, loadedAt: 0 };
 let trackedAppCache = { value: null, loadedAt: 0 };
 const transactionTransferCache = new Map();
+const ETH_BLOCKSCOUT_V2_URL = "https://eth.blockscout.com/api/v2";
 const STATIC_BRIDGE_DESTINATIONS = new Set([
   "0x41710804cab0974638e1504db723d7bddec22e30",
   "0xf8b5983bfa11dc763184c96065d508ae1502c030",
@@ -240,10 +241,13 @@ async function getTrackedBridgeDestinations() {
     [env.citreaChainId]
   );
 
-  const tracked = new Set(STATIC_BRIDGE_DESTINATIONS);
+  const tracked = new Map();
+  for (const address of STATIC_BRIDGE_DESTINATIONS) {
+    tracked.set(address, "Canonical bridge");
+  }
   for (const row of result.rows) {
     const normalized = normalizeAddress(row.contract_address);
-    if (normalized) tracked.add(normalized);
+    if (normalized) tracked.set(normalized, "Canonical bridge");
   }
 
   const trackedMetricApps = await getTrackedMetricApps();
@@ -251,7 +255,7 @@ async function getTrackedBridgeDestinations() {
     if (String(app?.walletMetrics?.category || "").toLowerCase() !== "bridge") continue;
     for (const entry of app?.walletMetrics?.addresses || []) {
       const normalized = normalizeAddress(entry.address);
-      if (normalized) tracked.add(normalized);
+      if (normalized) tracked.set(normalized, app.label);
     }
   }
 
@@ -506,15 +510,18 @@ async function classifyBridgeTransfer(transfer, walletAddress, trackedBridgeDest
   }
 
   const counterpartyMeta = await getAddressMetadata(env.citreascanApiUrl, counterparty);
-  const isTrackedBridge = trackedBridgeDestinations.has(counterparty);
-  const isBridgeLike = isTrackedBridge || addressLooksBridgeLike(counterpartyMeta);
+  const trackedSource = trackedBridgeDestinations.get(counterparty) || null;
+  const isBridgeLike = Boolean(trackedSource) || addressLooksBridgeLike(counterpartyMeta);
   if (!isBridgeLike) return null;
+
+  const sourceLabel = trackedSource || "Hyperlane-style transfer";
 
   const volumeCandidate = await buildPricedTransferCandidate(transfer, transfer?.timestamp);
   return {
     txHash,
     direction,
     counterparty,
+    sourceLabel,
     volumeCandidate,
     timestamp: transfer?.timestamp
   };
@@ -603,6 +610,19 @@ export async function getExplorerEnhancements(wallet, fromIso, toIso) {
     }
   }
 
+  if (out.eth_tx_count === null) {
+    try {
+      out.eth_tx_count = await fetchBlockscoutV2TxCount({
+        baseUrl: ETH_BLOCKSCOUT_V2_URL,
+        wallet,
+        startTimestamp,
+        endTimestamp
+      });
+    } catch (err) {
+      out.errors.push(`eth-blockscout:${err.message}`);
+    }
+  }
+
   try {
     if (env.citreascanApiUrl.includes("/api/v2")) {
       out.citrea_tx_count = await fetchBlockscoutV2TxCount({
@@ -687,6 +707,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   let bridgeTxCount = 0;
   const appBreakdown = new Map();
   const bridgeByTxDirection = new Map();
+  const bridgeSourceLabels = new Set();
   const gasItems = [];
   const swapItems = [];
 
@@ -706,6 +727,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
 
   for (const bridgeTransfer of bridgeByTxDirection.values()) {
     bridgeTxCount += 1;
+    bridgeSourceLabels.add(bridgeTransfer.sourceLabel);
     const usd = Number(bridgeTransfer?.volumeCandidate?.usd || 0);
     if (bridgeTransfer.direction === "inflow") {
       bridgeInflowUsdTotal += usd;
@@ -831,6 +853,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
     swap_count: swapCount,
     app_tx_count: appTxCount,
     bridge_tx_count: bridgeTxCount,
+    bridge_sources_detected: [...bridgeSourceLabels],
     bridge_inflow_usd_total: String(bridgeInflowUsdTotal),
     bridge_outflow_usd_total: String(bridgeOutflowUsdTotal),
     bridge_volume_usd_total: String(bridgeInflowUsdTotal + bridgeOutflowUsdTotal),

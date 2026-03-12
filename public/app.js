@@ -1,6 +1,7 @@
 const walletInput = document.getElementById("walletInput");
 const loadBtn = document.getElementById("loadBtn");
 const statusEl = document.getElementById("status");
+const bridgeSourceInfoEl = document.getElementById("bridgeSourceInfo");
 const kpiEl = document.getElementById("kpis");
 
 const networkStatusEl = document.getElementById("networkStatus");
@@ -81,6 +82,7 @@ function setNetworkStatus(text, isError = false) {
 }
 
 function renderKpis(summary) {
+  const walletEthTxCount = summary.explorer?.eth_tx_count;
   const cards = [
     ["Bridge Tx Count", summary.bridge.tx_count],
     ["Bridge Inflow (USDT)", summary.bridge.inflow_usd],
@@ -88,13 +90,24 @@ function renderKpis(summary) {
     ["Bridge Value (USDT)", summary.bridge.volume_usd],
     ["Total Wallet Volume (USDT)", summary.total_activity_volume_usd],
     ["DEX Swap Count", summary.dex.swap_count],
-    ["App Activity Count", summary.apps.tx_count],
+    ["Ethereum Tx Count", walletEthTxCount ?? 0],
     ["Citrea Tx Count", summary.citrea_total_tx_count],
   ];
 
   kpiEl.innerHTML = cards
     .map(([label, value]) => `<div class="kpi"><div class="label">${label}</div><div class="value">${money(value)}</div></div>`)
     .join("");
+
+  const bridgeSources = Array.isArray(summary.bridge?.sources_detected) ? summary.bridge.sources_detected : [];
+  if (bridgeSources.length > 0) {
+    bridgeSourceInfoEl.textContent = `Bridge source detected: ${bridgeSources.join(", ")}`;
+  } else if (Number(summary.bridge?.tx_count || 0) > 0) {
+    bridgeSourceInfoEl.textContent = "Bridge source detected: Indexed bridge activity";
+  } else if (Number(summary.apps?.tx_count || 0) > 0) {
+    bridgeSourceInfoEl.textContent = `Pinned app activity detected: ${money(summary.apps.tx_count)} transactions`;
+  } else {
+    bridgeSourceInfoEl.textContent = "No bridge or pinned app source detected for this wallet.";
+  }
 }
 
 function renderNetworkSummary(payload) {
@@ -191,7 +204,7 @@ function renderGasSummary(payload) {
     ["Slow", `${number(gas.gas_prices?.slow, 4)} gwei`],
     ["Average", `${number(gas.gas_prices?.average, 4)} gwei`],
     ["Fast", `${number(gas.gas_prices?.fast, 4)} gwei`],
-    ["Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
+    ["Est. Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
   ]
     .map(([label, value]) => `
       <div class="gas-stat">
@@ -203,7 +216,7 @@ function renderGasSummary(payload) {
   gasPriceUpdatedAtEl.textContent = gas.gas_price_updated_at
     ? `Explorer gas update ${new Date(gas.gas_price_updated_at).toLocaleTimeString()}`
     : "Explorer gas update unavailable";
-  gasLiveLabelEl.textContent = `Gas polling every 60s · UTC reset ${gas.gas_day_reset_utc || "00:00"}`;
+  gasLiveLabelEl.textContent = `Gas polling every 60s | UTC reset ${gas.gas_day_reset_utc || "00:00"}`;
 }
 
 async function loadWalletData() {

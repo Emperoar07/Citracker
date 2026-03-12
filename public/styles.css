@@ -343,6 +343,11 @@ button {
   font-size: 0.9rem;
 }
 
+.bridge-source-info {
+  min-height: 18px;
+  margin: -2px 0 12px;
+}
+
 .kpis,
 .network-kpis {
   display: grid;

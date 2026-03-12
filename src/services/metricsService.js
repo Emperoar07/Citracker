@@ -41,6 +41,7 @@ export async function getWalletSummary(wallet, from, to) {
   const bridgeSql = `
     SELECT
       COUNT(*) AS bridge_tx_count,
+      COALESCE(array_agg(DISTINCT protocol_name) FILTER (WHERE protocol_name IS NOT NULL), '{}') AS bridge_sources,
       COALESCE(SUM(CASE WHEN direction='inflow' THEN amount_usd END),0) AS inflow_usd,
       COALESCE(SUM(CASE WHEN direction='outflow' THEN amount_usd END),0) AS outflow_usd,
       COALESCE(SUM(amount_usd),0) AS volume_usd,
@@ -100,6 +101,7 @@ export async function getWalletSummary(wallet, from, to) {
     bridge_volume_usd: bridge.volume_usd,
     bridge_netflow_usd: bridge.netflow_usd,
     bridge_tx_count: bridge.bridge_tx_count,
+    bridge_sources: Array.isArray(bridge.bridge_sources) ? bridge.bridge_sources : [],
     dex_swap_volume_usd: dex.dex_volume_usd,
     dex_swap_count: dex.swap_count,
     gas_tx_count: gas.gas_tx_count,

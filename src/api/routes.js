@@ -50,6 +50,16 @@ function getWalletOrThrow(wallet) {
   return normalized;
 }
 
+function normalizeBridgeSourceLabel(source) {
+  const value = String(source || "").toLowerCase();
+  if (!value) return null;
+  if (value.includes("canonical")) return "Canonical bridge";
+  if (value.includes("symbiosis")) return "Symbiosis";
+  if (value.includes("btc")) return "Bitcoin system bridge";
+  if (value.includes("hyperlane") || value.includes("hyp")) return "Hyperlane-style transfer";
+  return source;
+}
+
 router.get("/network/summary", async (req, res, next) => {
   try {
     const payload = await getNetworkSummary();
@@ -84,6 +94,12 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       );
     }
     if (citreaFallback?.enabled) {
+      const mergedBridgeSources = new Set((base.bridge.sources_detected || []).map(normalizeBridgeSourceLabel).filter(Boolean));
+      for (const source of citreaFallback.bridge_sources_detected || []) {
+        const normalized = normalizeBridgeSourceLabel(source);
+        if (normalized) mergedBridgeSources.add(normalized);
+      }
+      base.bridge.sources_detected = [...mergedBridgeSources];
       base.citrea_total_tx_count = Math.max(
         Number(base.citrea_total_tx_count || 0),
         Number(citreaFallback.tx_count || 0)

@@ -1,6 +1,6 @@
 import { env } from "../config.js";
 import { getPool } from "../db.js";
-import { resolveTokenUsdPrice } from "./priceService.js";
+import { resolveNativeUsdPrice, resolveTokenUsdPrice } from "./priceService.js";
 import { buildCitreaAppSourceEntries } from "./sourceRegistry.js";
 import { getDuneCitreaCrossChecks, getDuneSourceEntry } from "./duneService.js";
 import { getNansenCitreaProbeResult, getNansenCitreaSourceEntry } from "./nansenService.js";
@@ -515,6 +515,11 @@ export async function getNetworkGasSummary() {
   ]);
 
   const errors = [explorer.error, indexed.error].filter(Boolean);
+  const nativePrice = await resolveNativeUsdPrice(env.citreaChainId, new Date().toISOString()).catch(() => null);
+  const averageGasPriceGwei = toNumber(explorer.gas_prices?.average);
+  const gasUsedToday = toNumber(explorer.gas_used_today);
+  const estimatedGasSpentNative = gasUsedToday * averageGasPriceGwei * 1e-9;
+  const estimatedGasSpentUsd = nativePrice ? estimatedGasSpentNative * nativePrice.price : 0;
 
   return {
     updated_at: new Date().toISOString(),
@@ -524,8 +529,9 @@ export async function getNetworkGasSummary() {
       gas_price_updated_at: explorer.gas_price_updated_at || null,
       gas_day_date: utcDateString(),
       gas_day_reset_utc: "00:00",
-      gas_used_today: explorer.gas_used_today || 0,
-      gas_spent_today_usd: indexed.gas_spent_today_usd || 0,
+      gas_used_today: gasUsedToday,
+      gas_spent_today_usd: estimatedGasSpentUsd,
+      gas_spent_today_source: nativePrice ? "estimated_from_explorer_gas_used" : "unavailable",
       gas_prices: {
         slow: explorer.gas_prices?.slow || 0,
         average: explorer.gas_prices?.average || 0,
