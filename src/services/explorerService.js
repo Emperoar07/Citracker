@@ -524,6 +524,7 @@ async function fetchEtherscanLikeTxCount({ baseUrl, apiKey, wallet, startTimesta
   if (!baseUrl) return null;
 
   const common = {
+    chainid: env.ethChainId,
     module: "account",
     action: "txlist",
     address: wallet,
@@ -537,7 +538,19 @@ async function fetchEtherscanLikeTxCount({ baseUrl, apiKey, wallet, startTimesta
   const url = buildUrl(baseUrl, apiKey, common);
   const data = await fetchJson(url);
 
-  if (!data || data.status === "0" || !Array.isArray(data.result)) {
+  if (!data) {
+    return 0;
+  }
+
+  if (data.status === "0") {
+    const message = String(data.result || data.message || "");
+    if (/no transactions found/i.test(message)) {
+      return 0;
+    }
+    throw new Error(message || "Etherscan request failed");
+  }
+
+  if (!Array.isArray(data.result)) {
     return 0;
   }
 
@@ -560,7 +573,7 @@ async function fetchBlockscoutV2TxCount({ baseUrl, wallet, startTimestamp, endTi
 
 export async function getExplorerEnhancements(wallet, fromIso, toIso) {
   const citreaEnabled = Boolean(env.citreascanApiUrl);
-  const ethEnabled = env.enableExplorerEnrichment && Boolean(env.etherscanApiUrl);
+  const ethEnabled = env.enableExplorerEnrichment && Boolean(env.etherscanApiUrl) && Boolean(env.etherscanApiKey);
 
   if (!citreaEnabled && !ethEnabled) {
     return { enabled: false };

@@ -26,7 +26,7 @@ export const env = {
   indexerMaxPendingItems: Number(process.env.INDEXER_MAX_PENDING_ITEMS || 500),
   pricingBatchSize: Number(process.env.PRICING_BATCH_SIZE || 500),
   enableExplorerEnrichment: String(process.env.ENABLE_EXPLORER_ENRICHMENT || "false").toLowerCase() === "true",
-  etherscanApiUrl: cleanUrl(process.env.ETHERSCAN_API_URL, "https://api.etherscan.io/api"),
+  etherscanApiUrl: cleanUrl(process.env.ETHERSCAN_API_URL, "https://api.etherscan.io/v2/api"),
   etherscanApiKey: cleanString(process.env.ETHERSCAN_API_KEY),
   citreascanApiUrl: cleanUrl(process.env.CITREASCAN_API_URL, "https://explorer.mainnet.citrea.xyz/api/v2"),
   citreascanApiKey: cleanString(process.env.CITREASCAN_API_KEY),
