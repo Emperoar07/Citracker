@@ -36,6 +36,8 @@ export const env = {
   rpcHeadBufferBlocks: Number(process.env.RPC_HEAD_BUFFER_BLOCKS || 4),
   indexerMaxRangesPerStream: Number(process.env.INDEXER_MAX_RANGES_PER_STREAM || 20),
   indexerMaxPendingItems: Number(process.env.INDEXER_MAX_PENDING_ITEMS || 500),
+  dexIndexerMaxRangesPerStream: Number(process.env.DEX_INDEXER_MAX_RANGES_PER_STREAM || process.env.INDEXER_MAX_RANGES_PER_STREAM || 8),
+  dexIndexerMaxPendingItems: Number(process.env.DEX_INDEXER_MAX_PENDING_ITEMS || process.env.INDEXER_MAX_PENDING_ITEMS || 200),
   pricingBatchSize: Number(process.env.PRICING_BATCH_SIZE || 500),
   enableExplorerEnrichment: String(process.env.ENABLE_EXPLORER_ENRICHMENT || "false").toLowerCase() === "true",
   etherscanApiUrl: cleanUrl(process.env.ETHERSCAN_API_URL, "https://api.etherscan.io/v2/api"),

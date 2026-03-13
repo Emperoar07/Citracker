@@ -192,7 +192,7 @@ async function discoverPools(factoryConfig, provider) {
     startBlock + 1,
     latestBlock,
     chunkSize,
-    env.indexerMaxRangesPerStream
+    env.dexIndexerMaxRangesPerStream
   );
   const iface =
     factoryConfig.dex_variant === "uniswap_v2"
@@ -263,7 +263,7 @@ async function processPool(poolConfig, provider) {
     startBlock + 1,
     latestBlock,
     chunkSize,
-    env.indexerMaxRangesPerStream
+    env.dexIndexerMaxRangesPerStream
   );
   const pool = getPool();
   const tokens = await readPoolTokens(provider, poolConfig.contract_address);
@@ -412,7 +412,7 @@ async function processRouterTransactions(routerConfig, provider) {
   const pool = getPool();
   const transactions = await fetchRouterTransactions(
     normalizeAddress(routerConfig.contract_address),
-    env.indexerMaxPendingItems
+    env.dexIndexerMaxPendingItems
   );
 
   for (const tx of transactions) {
