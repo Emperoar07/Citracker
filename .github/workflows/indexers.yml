@@ -61,6 +61,16 @@ jobs:
       - name: Bootstrap database
         run: npm run db:bootstrap
 
+      - name: Write bootstrap summary
+        shell: bash
+        run: |
+          {
+            echo "## Bootstrap"
+            echo ""
+            echo "- database bootstrap: completed"
+            echo "- workflow node version: $NODE_VERSION"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   bridge:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -110,6 +120,10 @@ jobs:
       - name: Run bridge indexer
         run: npm run indexer:bridge
 
+      - name: Write bridge summary
+        shell: bash
+        run: node scripts/indexerHealthCheck.js --stream=bridge --markdown >> "$GITHUB_STEP_SUMMARY"
+
   dex:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -158,6 +172,10 @@ jobs:
 
       - name: Run dex indexer
         run: npm run indexer:dex
+
+      - name: Write dex summary
+        shell: bash
+        run: node scripts/indexerHealthCheck.js --stream=dex --markdown >> "$GITHUB_STEP_SUMMARY"
 
   fees:
     runs-on: ubuntu-latest
@@ -210,6 +228,10 @@ jobs:
       - name: Run fee indexer
         run: npm run indexer:fees
 
+      - name: Write fee summary
+        shell: bash
+        run: node scripts/indexerHealthCheck.js --stream=fees --markdown >> "$GITHUB_STEP_SUMMARY"
+
   prices:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -261,3 +283,7 @@ jobs:
 
       - name: Run price indexer
         run: npm run indexer:prices
+
+      - name: Write pricing summary
+        shell: bash
+        run: node scripts/indexerHealthCheck.js --stream=prices --markdown >> "$GITHUB_STEP_SUMMARY"

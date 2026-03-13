@@ -9,6 +9,7 @@
     "db:bootstrap": "node scripts/bootstrapLiveDb.js",
     "sync:citrea-apps": "node scripts/syncCitreaAppRegistry.js",
     "seed:sample": "node scripts/seedSampleData.js",
+    "health:indexers": "node scripts/indexerHealthCheck.js --stream=all",
     "indexer:bridge": "node src/indexers/bridgeIndexer.js",
     "indexer:dex": "node src/indexers/dexIndexer.js",
     "indexer:fees": "node src/indexers/feeIndexer.js",
