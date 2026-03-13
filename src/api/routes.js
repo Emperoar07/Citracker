@@ -8,6 +8,7 @@ import {
   getWalletGas
 } from "../services/metricsService.js";
 import { getNetworkGasSummary, getNetworkSummary } from "../services/networkService.js";
+import { getIndexerHealth } from "../services/indexerHealthService.js";
 import { coerceSummaryPayload } from "../services/summarySerializer.js";
 import { getCitreaExplorerActivity, getCitreaWalletTokenBalances, getExplorerEnhancements } from "../services/explorerService.js";
 import { normalizeWallet, validateDateRange } from "../utils/validators.js";
@@ -101,6 +102,15 @@ router.get("/network/summary", async (req, res, next) => {
 router.get("/network/gas", async (req, res, next) => {
   try {
     const payload = await getNetworkGasSummary();
+    return res.json(payload);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get("/network/health", async (req, res, next) => {
+  try {
+    const payload = await getIndexerHealth({ stream: "all", enforceThresholds: true });
     return res.json(payload);
   } catch (err) {
     return next(err);

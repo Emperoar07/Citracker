@@ -107,12 +107,33 @@ body {
   color: var(--muted);
 }
 
+.live-pill-health.health-pass {
+  background: rgba(204, 255, 0, 0.08);
+  border-color: rgba(204, 255, 0, 0.18);
+}
+
+.live-pill-health.health-fail {
+  background: rgba(255, 107, 107, 0.08);
+  border-color: rgba(255, 107, 107, 0.2);
+  color: #ffd4d4;
+}
+
 .live-dot {
   width: 10px;
   height: 10px;
   border-radius: 999px;
   background: var(--lime);
   box-shadow: 0 0 0 7px rgba(204, 255, 0, 0.12);
+}
+
+.live-dot.health-pass {
+  background: var(--lime);
+  box-shadow: 0 0 0 7px rgba(204, 255, 0, 0.12);
+}
+
+.live-dot.health-fail {
+  background: #ff6b6b;
+  box-shadow: 0 0 0 7px rgba(255, 107, 107, 0.12);
 }
 
 .source-dropdown {

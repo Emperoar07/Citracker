@@ -9,6 +9,9 @@ const networkStatusEl = document.getElementById("networkStatus");
 const networkKpisEl = document.getElementById("networkKpis");
 const networkUpdatedAtEl = document.getElementById("networkUpdatedAt");
 const networkLiveLabelEl = document.getElementById("networkLiveLabel");
+const indexerHealthBadgeEl = document.getElementById("indexerHealthBadge");
+const indexerHealthDotEl = document.getElementById("indexerHealthDot");
+const indexerHealthLabelEl = document.getElementById("indexerHealthLabel");
 const bridgeOriginsEl = document.getElementById("bridgeOrigins");
 const gasPriceMetricsEl = document.getElementById("gasPriceMetrics");
 const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
@@ -128,6 +131,27 @@ function setStatus(text, isError = false) {
 function setNetworkStatus(text, isError = false) {
   networkStatusEl.textContent = text;
   networkStatusEl.style.color = isError ? "#ff6b6b" : "#c8b59d";
+}
+
+function renderIndexerHealth(payload) {
+  const health = payload?.health;
+  if (!indexerHealthBadgeEl || !indexerHealthDotEl || !indexerHealthLabelEl || !health) return;
+
+  const failureCount = Array.isArray(health.failures) ? health.failures.length : 0;
+  const status = health.status === "pass" ? "healthy" : "alert";
+  indexerHealthBadgeEl.classList.remove("health-pass", "health-fail");
+  indexerHealthBadgeEl.classList.add(status === "healthy" ? "health-pass" : "health-fail");
+  indexerHealthDotEl.classList.remove("health-pass", "health-fail");
+  indexerHealthDotEl.classList.add(status === "healthy" ? "health-pass" : "health-fail");
+  indexerHealthLabelEl.textContent =
+    status === "healthy"
+      ? "Indexer health healthy"
+      : `Indexer health alert${failureCount ? ` (${failureCount})` : ""}`;
+
+  const title = status === "healthy"
+    ? `Checked ${new Date(payload.checked_at).toLocaleString()}`
+    : (health.failures || []).join(" | ");
+  indexerHealthBadgeEl.title = title;
 }
 
 function renderKpis(summary) {
@@ -361,8 +385,12 @@ async function loadWalletData() {
 
 async function loadNetworkData() {
   try {
-    const payload = await fetchJsonOrThrow("/api/v1/network/summary");
+    const [payload, healthPayload] = await Promise.all([
+      fetchJsonOrThrow("/api/v1/network/summary"),
+      fetchJsonOrThrow("/api/v1/network/health")
+    ]);
     renderNetworkSummary(payload);
+    renderIndexerHealth(healthPayload);
     scheduleNetworkPolling(payload.refresh_ms || 300000);
   } catch (error) {
     setNetworkStatus(friendlyErrorMessage(error.message, "Failed to load Citrea mainnet panel."), true);
