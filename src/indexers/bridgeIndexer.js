@@ -3,6 +3,8 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 import {
   chunkRangeLimited,
+  getBufferedHeadBlock,
+  getLogsSafe,
   getOrCreateCursor,
   normalizeAddress,
   readErc20Metadata,
@@ -119,12 +121,12 @@ async function processCanonicalContract(contractConfig, provider) {
   );
 
   for (const [fromBlock, toBlock] of ranges) {
-    const currentHead = await provider.getBlockNumber();
+    const currentHead = getBufferedHeadBlock(await provider.getBlockNumber());
     if (fromBlock > currentHead) {
       break;
     }
     const safeToBlock = Math.min(toBlock, currentHead);
-    const logs = await provider.getLogs({
+    const logs = await getLogsSafe(provider, {
       address: contractConfig.contract_address,
       fromBlock,
       toBlock: safeToBlock,
@@ -219,12 +221,12 @@ async function processLayerZeroOft(contractConfig, provider) {
   );
 
   for (const [fromBlock, toBlock] of ranges) {
-    const currentHead = await provider.getBlockNumber();
+    const currentHead = getBufferedHeadBlock(await provider.getBlockNumber());
     if (fromBlock > currentHead) {
       break;
     }
     const safeToBlock = Math.min(toBlock, currentHead);
-    const logs = await provider.getLogs({
+    const logs = await getLogsSafe(provider, {
       address: contractConfig.contract_address,
       fromBlock,
       toBlock: safeToBlock,
@@ -313,12 +315,12 @@ async function processCitreaBtcBridge(contractConfig, provider) {
   });
 
   for (const [fromBlock, toBlock] of ranges) {
-    const currentHead = await provider.getBlockNumber();
+    const currentHead = getBufferedHeadBlock(await provider.getBlockNumber());
     if (fromBlock > currentHead) {
       break;
     }
     const safeToBlock = Math.min(toBlock, currentHead);
-    const logs = await provider.getLogs({
+    const logs = await getLogsSafe(provider, {
       address: contractConfig.contract_address,
       fromBlock,
       toBlock: safeToBlock,

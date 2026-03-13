@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { getPool } from "../db.js";
+import { env } from "../config.js";
 
 export function normalizeAddress(address) {
   return typeof address === "string" ? address.toLowerCase() : null;
@@ -31,6 +32,40 @@ export function chunkRangeLimited(fromBlock, toBlock, chunkSize, maxRanges) {
   }
 
   return ranges;
+}
+
+export function getBufferedHeadBlock(headBlock) {
+  const numericHead = Number(headBlock || 0);
+  return Math.max(numericHead - Math.max(env.rpcHeadBufferBlocks, 0), 0);
+}
+
+export async function getLogsSafe(provider, filter) {
+  let attempts = 0;
+  let nextFilter = { ...filter };
+
+  while (attempts < 3) {
+    try {
+      return await provider.getLogs(nextFilter);
+    } catch (error) {
+      const message = String(error?.shortMessage || error?.message || error?.error?.message || "");
+      if (!/beyond current head block/i.test(message)) {
+        throw error;
+      }
+
+      const bufferedHead = getBufferedHeadBlock(await provider.getBlockNumber());
+      if (Number(nextFilter.fromBlock) > bufferedHead) {
+        return [];
+      }
+
+      nextFilter = {
+        ...nextFilter,
+        toBlock: Math.min(Number(nextFilter.toBlock), bufferedHead)
+      };
+      attempts += 1;
+    }
+  }
+
+  return [];
 }
 
 export async function getOrCreateCursor(streamKey, chainId, startBlock) {

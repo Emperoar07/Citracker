@@ -3,6 +3,8 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 import {
   chunkRangeLimited,
+  getBufferedHeadBlock,
+  getLogsSafe,
   getOrCreateCursor,
   normalizeAddress,
   readErc20Metadata,
@@ -200,12 +202,12 @@ async function discoverPools(factoryConfig, provider) {
         : new ethers.Interface(V3_FACTORY_ABI);
 
   for (const [fromBlock, toBlock] of ranges) {
-    const currentHead = await provider.getBlockNumber();
+    const currentHead = getBufferedHeadBlock(await provider.getBlockNumber());
     if (fromBlock > currentHead) {
       break;
     }
     const safeToBlock = Math.min(toBlock, currentHead);
-    const logs = await provider.getLogs({
+    const logs = await getLogsSafe(provider, {
       address: factoryConfig.contract_address,
       fromBlock,
       toBlock: safeToBlock,
@@ -288,12 +290,12 @@ async function processPool(poolConfig, provider) {
   ]);
 
   for (const [fromBlock, toBlock] of ranges) {
-    const currentHead = await provider.getBlockNumber();
+    const currentHead = getBufferedHeadBlock(await provider.getBlockNumber());
     if (fromBlock > currentHead) {
       break;
     }
     const safeToBlock = Math.min(toBlock, currentHead);
-    const logs = await provider.getLogs({
+    const logs = await getLogsSafe(provider, {
       address: poolConfig.contract_address,
       fromBlock,
       toBlock: safeToBlock,

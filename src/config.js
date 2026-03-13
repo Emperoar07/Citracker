@@ -28,6 +28,7 @@ export const env = {
   startBlockCitrea: Number(process.env.START_BLOCK_CITREA || 0),
   indexerChunkSize: Number(process.env.INDEXER_CHUNK_SIZE || 2000),
   rpcMaxLogRange: Number(process.env.RPC_MAX_LOG_RANGE || 1000),
+  rpcHeadBufferBlocks: Number(process.env.RPC_HEAD_BUFFER_BLOCKS || 4),
   indexerMaxRangesPerStream: Number(process.env.INDEXER_MAX_RANGES_PER_STREAM || 20),
   indexerMaxPendingItems: Number(process.env.INDEXER_MAX_PENDING_ITEMS || 500),
   pricingBatchSize: Number(process.env.PRICING_BATCH_SIZE || 500),
