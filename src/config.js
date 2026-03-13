@@ -3,7 +3,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 function cleanString(value, fallback = "") {
-  return typeof value === "string" ? value.trim() : fallback;
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : fallback;
 }
 
 function cleanUrl(value, fallback = "") {

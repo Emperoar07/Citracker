@@ -52,32 +52,38 @@ async function fetchCoinGeckoHistory(assetId, timestamp) {
     return HISTORY_PRICE_CACHE.get(cacheKey);
   }
 
-  const url = new URL(`${env.coinGeckoApiBase.replace(/\/$/, "")}/coins/${assetId}/history`);
-  url.searchParams.set("date", date);
-  url.searchParams.set("localization", "false");
+  try {
+    const url = new URL(`${env.coinGeckoApiBase.replace(/\/$/, "")}/coins/${assetId}/history`);
+    url.searchParams.set("date", date);
+    url.searchParams.set("localization", "false");
 
-  const headers = {};
-  if (env.coinGeckoDemoApiKey) {
-    headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
-  }
-
-  const res = await fetch(url.toString(), {
-    headers,
-    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
-  });
-  if (!res.ok) {
-    if (res.status === 429) {
-      HISTORY_PRICE_CACHE.set(cacheKey, null);
-      return null;
+    const headers = {};
+    if (env.coinGeckoDemoApiKey) {
+      headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
     }
-    throw new Error(`CoinGecko HTTP ${res.status}`);
-  }
 
-  const data = await res.json();
-  const usd = Number(data?.market_data?.current_price?.usd);
-  const value = Number.isFinite(usd) ? usd : null;
-  HISTORY_PRICE_CACHE.set(cacheKey, value);
-  return value;
+    const res = await fetch(url.toString(), {
+      headers,
+      signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
+    });
+    if (!res.ok) {
+      if (res.status === 429) {
+        HISTORY_PRICE_CACHE.set(cacheKey, null);
+        return null;
+      }
+      throw new Error(`CoinGecko HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const usd = Number(data?.market_data?.current_price?.usd);
+    const value = Number.isFinite(usd) ? usd : null;
+    HISTORY_PRICE_CACHE.set(cacheKey, value);
+    return value;
+  } catch (error) {
+    console.warn(`CoinGecko history lookup failed for ${assetId} on ${date}: ${error.message}`);
+    HISTORY_PRICE_CACHE.set(cacheKey, null);
+    return null;
+  }
 }
 
 async function fetchCoinGeckoSpot(assetId) {
@@ -86,31 +92,36 @@ async function fetchCoinGeckoSpot(assetId) {
     return cached.value;
   }
 
-  const url = new URL(`${env.coinGeckoApiBase.replace(/\/$/, "")}/simple/price`);
-  url.searchParams.set("ids", assetId);
-  url.searchParams.set("vs_currencies", "usd");
+  try {
+    const url = new URL(`${env.coinGeckoApiBase.replace(/\/$/, "")}/simple/price`);
+    url.searchParams.set("ids", assetId);
+    url.searchParams.set("vs_currencies", "usd");
 
-  const headers = {};
-  if (env.coinGeckoDemoApiKey) {
-    headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
-  }
-
-  const res = await fetch(url.toString(), {
-    headers,
-    signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
-  });
-  if (!res.ok) {
-    if (res.status === 429) {
-      return null;
+    const headers = {};
+    if (env.coinGeckoDemoApiKey) {
+      headers["x-cg-demo-api-key"] = env.coinGeckoDemoApiKey;
     }
-    throw new Error(`CoinGecko HTTP ${res.status}`);
-  }
 
-  const data = await res.json();
-  const value = Number(data?.[assetId]?.usd);
-  if (!Number.isFinite(value)) return null;
-  SPOT_PRICE_CACHE.set(assetId, { value, updatedAt: Date.now() });
-  return value;
+    const res = await fetch(url.toString(), {
+      headers,
+      signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
+    });
+    if (!res.ok) {
+      if (res.status === 429) {
+        return null;
+      }
+      throw new Error(`CoinGecko HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const value = Number(data?.[assetId]?.usd);
+    if (!Number.isFinite(value)) return null;
+    SPOT_PRICE_CACHE.set(assetId, { value, updatedAt: Date.now() });
+    return value;
+  } catch (error) {
+    console.warn(`CoinGecko spot lookup failed for ${assetId}: ${error.message}`);
+    return null;
+  }
 }
 
 export async function resolveTokenUsdPriceSpot(symbol) {
