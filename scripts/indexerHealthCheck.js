@@ -5,6 +5,41 @@ function startOfUtcDay() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
+function parseArgs(argv) {
+  const flags = new Set(argv.filter((arg) => arg.startsWith("--")));
+  const values = Object.fromEntries(
+    argv
+      .filter((arg) => arg.startsWith("--") && arg.includes("="))
+      .map((arg) => {
+        const [key, value] = arg.split(/=(.*)/s, 2);
+        return [key, value];
+      })
+  );
+
+  return { flags, values };
+}
+
+function envNumber(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function percentage(numerator, denominator) {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
+    return null;
+  }
+  return numerator / denominator;
+}
+
+function ageMinutes(timestamp) {
+  if (!timestamp) return null;
+  const value = new Date(timestamp).getTime();
+  if (Number.isNaN(value)) return null;
+  return (Date.now() - value) / 60000;
+}
+
 async function queryValue(pool, sql, params = []) {
   const result = await pool.query(sql, params);
   return result.rows[0] || {};
@@ -153,10 +188,13 @@ async function getPriceStats(pool) {
   return {
     bridgePricedRows: Number(bridge.priced_rows || 0),
     bridgeTotalRows: Number(bridge.total_rows || 0),
+    bridgeCoverage: percentage(Number(bridge.priced_rows || 0), Number(bridge.total_rows || 0)),
     dexPricedRows: Number(dex.priced_rows || 0),
     dexTotalRows: Number(dex.total_rows || 0),
+    dexCoverage: percentage(Number(dex.priced_rows || 0), Number(dex.total_rows || 0)),
     feePricedRows: Number(fees.priced_rows || 0),
     feeTotalRows: Number(fees.total_rows || 0),
+    feeCoverage: percentage(Number(fees.priced_rows || 0), Number(fees.total_rows || 0)),
     snapshotRows: Number(snapshots.snapshot_rows || 0)
   };
 }
@@ -169,10 +207,73 @@ function toMarkdownSection(title, stats) {
   return lines.join("\n");
 }
 
+function buildThresholds() {
+  return {
+    bridgeMaxCursorStalenessMinutes: envNumber("HEALTH_BRIDGE_MAX_CURSOR_STALENESS_MINUTES", 180),
+    dexMaxCursorStalenessMinutes: envNumber("HEALTH_DEX_MAX_CURSOR_STALENESS_MINUTES", 180),
+    minBridgeCursorCount: envNumber("HEALTH_MIN_BRIDGE_CURSOR_COUNT", 1),
+    minDexCursorCount: envNumber("HEALTH_MIN_DEX_CURSOR_COUNT", 1),
+    minBridgePriceCoverage: envNumber("HEALTH_MIN_BRIDGE_PRICE_COVERAGE", 0.005),
+    minDexPriceCoverage: envNumber("HEALTH_MIN_DEX_PRICE_COVERAGE", 0.01),
+    minFeePriceCoverage: envNumber("HEALTH_MIN_FEE_PRICE_COVERAGE", 0.75),
+    minPriceSnapshots: envNumber("HEALTH_MIN_PRICE_SNAPSHOTS", 1)
+  };
+}
+
+function evaluateThresholds(sections, thresholds) {
+  const failures = [];
+
+  if (sections.bridge) {
+    const stale = ageMinutes(sections.bridge.lastCursorUpdate);
+    if (sections.bridge.activeContracts > 0 && sections.bridge.cursorCount < thresholds.minBridgeCursorCount) {
+      failures.push(`bridge cursor count ${sections.bridge.cursorCount} is below minimum ${thresholds.minBridgeCursorCount}`);
+    }
+    if (sections.bridge.cursorCount > 0 && stale !== null && stale > thresholds.bridgeMaxCursorStalenessMinutes) {
+      failures.push(
+        `bridge cursor freshness is stale at ${stale.toFixed(1)} minutes, above ${thresholds.bridgeMaxCursorStalenessMinutes}`
+      );
+    }
+  }
+
+  if (sections.dex) {
+    const stale = ageMinutes(sections.dex.lastCursorUpdate);
+    if (sections.dex.activeContracts > 0 && sections.dex.cursorCount < thresholds.minDexCursorCount) {
+      failures.push(`dex cursor count ${sections.dex.cursorCount} is below minimum ${thresholds.minDexCursorCount}`);
+    }
+    if (sections.dex.cursorCount > 0 && stale !== null && stale > thresholds.dexMaxCursorStalenessMinutes) {
+      failures.push(`dex cursor freshness is stale at ${stale.toFixed(1)} minutes, above ${thresholds.dexMaxCursorStalenessMinutes}`);
+    }
+  }
+
+  if (sections.prices) {
+    if (sections.prices.snapshotRows < thresholds.minPriceSnapshots) {
+      failures.push(`price snapshot rows ${sections.prices.snapshotRows} are below minimum ${thresholds.minPriceSnapshots}`);
+    }
+    if (sections.prices.bridgeCoverage !== null && sections.prices.bridgeCoverage < thresholds.minBridgePriceCoverage) {
+      failures.push(
+        `bridge price coverage ${(sections.prices.bridgeCoverage * 100).toFixed(2)}% is below minimum ${(thresholds.minBridgePriceCoverage * 100).toFixed(2)}%`
+      );
+    }
+    if (sections.prices.dexCoverage !== null && sections.prices.dexCoverage < thresholds.minDexPriceCoverage) {
+      failures.push(
+        `dex price coverage ${(sections.prices.dexCoverage * 100).toFixed(2)}% is below minimum ${(thresholds.minDexPriceCoverage * 100).toFixed(2)}%`
+      );
+    }
+    if (sections.prices.feeCoverage !== null && sections.prices.feeCoverage < thresholds.minFeePriceCoverage) {
+      failures.push(
+        `fee price coverage ${(sections.prices.feeCoverage * 100).toFixed(2)}% is below minimum ${(thresholds.minFeePriceCoverage * 100).toFixed(2)}%`
+      );
+    }
+  }
+
+  return failures;
+}
+
 async function main() {
-  const streamArg = process.argv.find((arg) => arg.startsWith("--stream="));
-  const stream = (streamArg ? streamArg.split("=")[1] : "all").toLowerCase();
-  const markdown = process.argv.includes("--markdown");
+  const args = parseArgs(process.argv.slice(2));
+  const stream = (args.values["--stream"] || "all").toLowerCase();
+  const markdown = args.flags.has("--markdown");
+  const enforceThresholds = args.flags.has("--enforce-thresholds");
   const dayStart = startOfUtcDay();
   const pool = getPool();
 
@@ -191,16 +292,47 @@ async function main() {
     sections.prices = await getPriceStats(pool);
   }
 
+  const thresholds = buildThresholds();
+  const failures = enforceThresholds ? evaluateThresholds(sections, thresholds) : [];
+
   if (markdown) {
-    const output = Object.entries(sections)
+    const outputSections = Object.entries(sections)
       .map(([name, stats]) => toMarkdownSection(name, stats))
       .join("\n\n");
-    console.log(output);
+    const thresholdSection = enforceThresholds
+      ? [
+          "### health",
+          `- status: ${failures.length ? "fail" : "pass"}`,
+          ...failures.map((failure) => `- failure: ${failure}`)
+        ].join("\n")
+      : "";
+    console.log([outputSections, thresholdSection].filter(Boolean).join("\n\n"));
   } else {
-    console.log(JSON.stringify(sections, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          sections,
+          ...(enforceThresholds
+            ? {
+                health: {
+                  status: failures.length ? "fail" : "pass",
+                  thresholds,
+                  failures
+                }
+              }
+            : {})
+        },
+        null,
+        2
+      )
+    );
   }
 
   await closePool();
+
+  if (failures.length) {
+    process.exit(1);
+  }
 }
 
 main().catch(async (error) => {

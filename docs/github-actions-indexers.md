@@ -76,6 +76,12 @@ Run locally:
 npm run health:indexers
 ```
 
+Strict local health check with thresholds:
+
+```bash
+npm run health:indexers:strict
+```
+
 Or target one stream:
 
 ```bash
@@ -90,3 +96,32 @@ Markdown output for workflow/job summaries:
 ```bash
 node scripts/indexerHealthCheck.js --stream=dex --markdown
 ```
+
+## Thresholds
+
+The health script can enforce thresholds and exit non-zero.
+
+Default thresholds:
+
+- `HEALTH_BRIDGE_MAX_CURSOR_STALENESS_MINUTES=180`
+- `HEALTH_DEX_MAX_CURSOR_STALENESS_MINUTES=180`
+- `HEALTH_MIN_BRIDGE_CURSOR_COUNT=1`
+- `HEALTH_MIN_DEX_CURSOR_COUNT=1`
+- `HEALTH_MIN_BRIDGE_PRICE_COVERAGE=0.005`
+- `HEALTH_MIN_DEX_PRICE_COVERAGE=0.01`
+- `HEALTH_MIN_FEE_PRICE_COVERAGE=0.75`
+- `HEALTH_MIN_PRICE_SNAPSHOTS=1`
+
+You can override these in GitHub Actions repository variables for the `Indexer Health` workflow.
+
+## Scheduled Health Workflow
+
+The `Indexer Health` workflow runs separately from the ingestion workflow.
+
+It does three things:
+
+- writes a markdown health summary to the workflow run
+- fails the workflow when thresholds are violated
+- creates or updates a GitHub issue labeled `indexer-health-alert`
+
+When health recovers, the workflow closes the open alert issue automatically.

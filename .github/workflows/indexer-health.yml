@@ -1,0 +1,141 @@
+name: Indexer Health
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "12,42 * * * *"
+
+concurrency:
+  group: citracker-indexer-health
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: 22
+  NPM_CI_RETRIES: 3
+  ALERT_ISSUE_TITLE: "Indexer health alert"
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+      CITREA_RPC_URL: ${{ secrets.CITREA_RPC_URL }}
+      HEALTH_BRIDGE_MAX_CURSOR_STALENESS_MINUTES: ${{ vars.HEALTH_BRIDGE_MAX_CURSOR_STALENESS_MINUTES }}
+      HEALTH_DEX_MAX_CURSOR_STALENESS_MINUTES: ${{ vars.HEALTH_DEX_MAX_CURSOR_STALENESS_MINUTES }}
+      HEALTH_MIN_BRIDGE_CURSOR_COUNT: ${{ vars.HEALTH_MIN_BRIDGE_CURSOR_COUNT }}
+      HEALTH_MIN_DEX_CURSOR_COUNT: ${{ vars.HEALTH_MIN_DEX_CURSOR_COUNT }}
+      HEALTH_MIN_BRIDGE_PRICE_COVERAGE: ${{ vars.HEALTH_MIN_BRIDGE_PRICE_COVERAGE }}
+      HEALTH_MIN_DEX_PRICE_COVERAGE: ${{ vars.HEALTH_MIN_DEX_PRICE_COVERAGE }}
+      HEALTH_MIN_FEE_PRICE_COVERAGE: ${{ vars.HEALTH_MIN_FEE_PRICE_COVERAGE }}
+      HEALTH_MIN_PRICE_SNAPSHOTS: ${{ vars.HEALTH_MIN_PRICE_SNAPSHOTS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          for attempt in $(seq 1 "$NPM_CI_RETRIES"); do
+            if npm ci; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$NPM_CI_RETRIES" ]; then
+              echo "npm ci failed after $attempt attempts" >&2
+              exit 1
+            fi
+            echo "npm ci failed on attempt $attempt, retrying..." >&2
+            sleep $((attempt * 5))
+          done
+
+      - name: Run health check
+        id: health
+        shell: bash
+        run: |
+          set +e
+          node scripts/indexerHealthCheck.js --stream=all --markdown --enforce-thresholds | tee indexer-health.md >> "$GITHUB_STEP_SUMMARY"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Create or update alert issue
+        if: steps.health.outputs.exit_code != '0'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require("fs");
+            const title = process.env.ALERT_ISSUE_TITLE;
+            const body = [
+              "Indexer health thresholds failed.",
+              "",
+              `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              "",
+              fs.readFileSync("indexer-health.md", "utf8")
+            ].join("\n");
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "indexer-health-alert"
+            });
+
+            const existing = issues.find((issue) => issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["indexer-health-alert"]
+              });
+            }
+
+      - name: Close alert issue on recovery
+        if: steps.health.outputs.exit_code == '0'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const title = process.env.ALERT_ISSUE_TITLE;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "indexer-health-alert"
+            });
+
+            const existing = issues.find((issue) => issue.title === title);
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: "closed"
+              });
+            }
+
+      - name: Fail workflow when unhealthy
+        if: steps.health.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "Indexer health thresholds failed" >&2
+          exit 1
