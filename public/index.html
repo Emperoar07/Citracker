@@ -115,45 +115,70 @@
           </section>
 
           <section class="network-grid network-grid-tight">
-            <section class="card">
-              <div class="section-head">
-                <h3>Today Snapshot</h3>
-                <span class="subtle">Explorer + Citracker</span>
+            <details class="card card-dropdown" open>
+              <summary class="card-dropdown-summary">
+                <div class="section-head">
+                  <h3>Today Snapshot</h3>
+                  <span class="subtle">Explorer + Citracker</span>
+                </div>
+                <span class="card-dropdown-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="card-dropdown-content">
+                <div class="metric-list" id="todaySnapshot"></div>
               </div>
-              <div class="metric-list" id="todaySnapshot"></div>
-            </section>
+            </details>
 
-            <section class="card">
-              <div class="section-head">
-                <h3>Top 3 Tracked Bridge Routes Today</h3>
-                <span class="subtle">Citracker bridge receipts</span>
+            <details class="card card-dropdown">
+              <summary class="card-dropdown-summary">
+                <div class="section-head">
+                  <h3>Top 3 Tracked Bridge Routes Today</h3>
+                  <span class="subtle">Citracker bridge receipts</span>
+                </div>
+                <span class="card-dropdown-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="card-dropdown-content">
+                <div class="metric-list" id="topBridgeRoutes"></div>
               </div>
-              <div class="metric-list" id="topBridgeRoutes"></div>
-            </section>
+            </details>
 
-            <section class="card">
-              <div class="section-head">
-                <h3>Top 3 Tracked Bridged Tokens Today</h3>
-                <span class="subtle">Citracker bridge token flow</span>
+            <details class="card card-dropdown">
+              <summary class="card-dropdown-summary">
+                <div class="section-head">
+                  <h3>Top 3 Tracked Bridged Tokens Today</h3>
+                  <span class="subtle">Citracker bridge token flow</span>
+                </div>
+                <span class="card-dropdown-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="card-dropdown-content">
+                <div class="metric-list" id="topTokensBridged"></div>
               </div>
-              <div class="metric-list" id="topTokensBridged"></div>
-            </section>
+            </details>
 
-            <section class="card">
-              <div class="section-head">
-                <h3>Top 3 Tracked Apps by Tx Count</h3>
-                <span class="subtle">Citracker app activity today</span>
+            <details class="card card-dropdown">
+              <summary class="card-dropdown-summary">
+                <div class="section-head">
+                  <h3>Top 3 Tracked Apps by Tx Count</h3>
+                  <span class="subtle">Citracker app activity today</span>
+                </div>
+                <span class="card-dropdown-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="card-dropdown-content">
+                <div class="metric-list" id="topAppsByTx"></div>
               </div>
-              <div class="metric-list" id="topAppsByTx"></div>
-            </section>
+            </details>
 
-            <section class="card">
-              <div class="section-head">
-                <h3>Top 3 Tracked Apps by Volume</h3>
-                <span class="subtle">Citracker app volume today</span>
+            <details class="card card-dropdown">
+              <summary class="card-dropdown-summary">
+                <div class="section-head">
+                  <h3>Top 3 Tracked Apps by Volume</h3>
+                  <span class="subtle">Citracker app volume today</span>
+                </div>
+                <span class="card-dropdown-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="card-dropdown-content">
+                <div class="metric-list" id="topAppsByVolume"></div>
               </div>
-              <div class="metric-list" id="topAppsByVolume"></div>
-            </section>
+            </details>
           </section>
         </aside>
       </section>

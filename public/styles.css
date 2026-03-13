@@ -442,6 +442,73 @@ button {
   margin-top: 0;
 }
 
+.card-dropdown {
+  padding: 0;
+  overflow: hidden;
+}
+
+.card-dropdown summary {
+  list-style: none;
+}
+
+.card-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.card-dropdown-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-dropdown-summary .section-head {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.card-dropdown-icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-top: 3px;
+  color: var(--accent);
+  transition: transform 180ms ease;
+}
+
+.card-dropdown-icon::before,
+.card-dropdown-icon::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  width: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.card-dropdown-icon::before {
+  left: 1px;
+  transform: rotate(45deg);
+}
+
+.card-dropdown-icon::after {
+  right: 1px;
+  transform: rotate(-45deg);
+}
+
+.card-dropdown[open] .card-dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.card-dropdown-content {
+  padding: 0 16px 16px;
+}
+
 .metric-list {
   display: grid;
   gap: 8px;
