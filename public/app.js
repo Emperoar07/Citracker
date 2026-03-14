@@ -5,6 +5,7 @@ const bridgeSourceInfoEl = document.getElementById("bridgeSourceInfo");
 const kpiEl = document.getElementById("kpis");
 const walletBalancesEl = document.getElementById("walletBalances");
 const walletTopAppsEl = document.getElementById("walletTopApps");
+const walletTopApps24hEl = document.getElementById("walletTopApps24h");
 
 const networkStatusEl = document.getElementById("networkStatus");
 const networkKpisEl = document.getElementById("networkKpis");
@@ -226,6 +227,26 @@ function renderKpis(summary) {
     </div>`);
 }
 
+function renderWalletTopApps24h(summary) {
+  renderMetricList(walletTopApps24hEl, summary?.usage?.top_apps || [], (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.app}</div>
+        <div class="metric-label">${walletUsageMeta(item)}</div>
+      </div>
+      <span class="metric-value">${money(item.tx_count)} tx</span>
+    </div>`);
+}
+
+function getLast24HoursRange() {
+  const now = new Date();
+  const from = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+  return {
+    from: from.toISOString(),
+    to: now.toISOString()
+  };
+}
+
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
   const dex24hSource =
@@ -402,14 +423,34 @@ async function loadWalletData() {
   }
 
   const base = `/api/v1/wallet/${wallet}`;
+  const recentRange = getLast24HoursRange();
+  const recentQuery = `from=${encodeURIComponent(recentRange.from)}&to=${encodeURIComponent(recentRange.to)}`;
   setStatus("Loading all-time wallet totals...");
 
   try {
-    const summary = await fetchJsonOrThrow(`${base}/summary`);
+    const [summaryResult, recentSummaryResult] = await Promise.allSettled([
+      fetchJsonOrThrow(`${base}/summary`),
+      fetchJsonOrThrow(`${base}/summary?${recentQuery}`)
+    ]);
+
+    if (summaryResult.status !== "fulfilled") {
+      throw summaryResult.reason;
+    }
+
+    const summary = summaryResult.value;
+    const recentSummary =
+      recentSummaryResult.status === "fulfilled"
+        ? recentSummaryResult.value
+        : { usage: { top_apps: [] } };
 
     renderKpis(summary);
+    renderWalletTopApps24h(recentSummary);
 
-    setStatus(`Loaded all-time totals for ${wallet}.`);
+    setStatus(
+      recentSummaryResult.status === "fulfilled"
+        ? `Loaded all-time totals for ${wallet}.`
+        : `Loaded all-time totals for ${wallet}. Recent app activity is temporarily unavailable.`
+    );
   } catch (error) {
     setStatus(friendlyErrorMessage(error.message, "Failed to load wallet data."), true);
   }
