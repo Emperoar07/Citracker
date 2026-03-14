@@ -4,14 +4,38 @@
   "chainId": 4114,
   "registry": {
     "coverage": "metrics",
-    "scope": "source health only",
-    "confidence": "documented surface",
+    "scope": "wallet metrics",
+    "confidence": "documented api + pinned source contracts",
     "integrated": true,
     "status": "ok",
-    "usage": "Tracked as a live Citrea bridge route from the app hub. Squid exposes route surfaces but not a stable pinned Citrea wallet contract map here, so this entry does not affect wallet totals."
+    "usage": "Wallet totals include Squid bridge flows through pinned source-chain contracts when the route explicitly targets Citrea."
   },
   "api": {
     "healthUrl": "https://app.squidrouter.com/?chains=1%2C4114&tokens=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48%2C0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   },
-  "contracts": []
+  "walletMetrics": {
+    "mode": "source-bridge",
+    "category": "bridge",
+    "sourceChainId": 1,
+    "destinationChainId": 4114,
+    "methods": [
+      "bridgeAndExecute"
+    ],
+    "addresses": [
+      {
+        "address": "0x1b6257CAE4192e62B629eFCa21771be3D759183D",
+        "role": "utb",
+        "label": "Squid UTB"
+      },
+      {
+        "address": "0xaD6Cea45f98444a922a2b4fE96b8C90F0862D2F4",
+        "role": "multicall",
+        "label": "Squid Multicall"
+      }
+    ]
+  },
+  "contracts": [
+    "0x1b6257CAE4192e62B629eFCa21771be3D759183D",
+    "0xaD6Cea45f98444a922a2b4fE96b8C90F0862D2F4"
+  ]
 }

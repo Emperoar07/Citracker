@@ -84,6 +84,7 @@ function normalizeBridgeSourceLabel(source) {
   const value = String(source || "").toLowerCase();
   if (!value) return null;
   if (value.includes("canonical")) return "Canonical bridge";
+  if (value.includes("squid")) return "Squid";
   if (value.includes("symbiosis")) return "Symbiosis";
   if (value.includes("btc")) return "Bitcoin system bridge";
   if (value.includes("hyperlane") || value.includes("hyp")) return "Hyperlane-style transfer";

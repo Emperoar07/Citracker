@@ -92,6 +92,27 @@ function findDecodedParam(tx, ...names) {
   return null;
 }
 
+function nestedValueExists(node, matcher) {
+  if (matcher(node)) return true;
+  if (Array.isArray(node)) {
+    return node.some((item) => nestedValueExists(item, matcher));
+  }
+  if (node && typeof node === "object") {
+    return Object.values(node).some((value) => nestedValueExists(value, matcher));
+  }
+  return false;
+}
+
+function txTargetsChainId(tx, chainId) {
+  const target = Number(chainId);
+  if (!Number.isFinite(target)) return false;
+  return nestedValueExists(tx?.decoded_input, (value) => {
+    if (typeof value === "number") return value === target;
+    if (typeof value === "string") return value === String(target);
+    return false;
+  });
+}
+
 async function fetchBlockscoutTransactions({ baseUrl, wallet, startTimestamp, endTimestamp, maxItems }) {
   if (!baseUrl) return [];
 
@@ -336,6 +357,8 @@ async function getTrackedMetricApps() {
   const byAddress = new Map();
 
   for (const app of activeApps) {
+    const mode = String(app?.walletMetrics?.mode || "destination-address").toLowerCase();
+    if (mode === "source-bridge") continue;
     for (const entry of app?.walletMetrics?.addresses || []) {
       const normalized = normalizeAddress(entry.address);
       if (!normalized) continue;
@@ -357,6 +380,14 @@ async function getTrackedMetricApps() {
     loadedAt: now
   };
   return trackedAppCache.value;
+}
+
+async function getSourceBridgeAppConfigs() {
+  const trackedMetricApps = await getTrackedMetricApps();
+  return (trackedMetricApps.apps || []).filter((app) => {
+    const mode = String(app?.walletMetrics?.mode || "").toLowerCase();
+    return mode === "source-bridge" && Number(app?.walletMetrics?.sourceChainId || 0) === env.ethChainId;
+  });
 }
 
 function getTransferAmountDecimal(transfer) {
@@ -871,6 +902,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   const trackedDexDestinations = await getTrackedDexDestinations();
   const trackedBridgeDestinations = await getTrackedBridgeDestinations();
   const trackedMetricApps = await getTrackedMetricApps();
+  const sourceBridgeApps = await getSourceBridgeAppConfigs();
   const [transactions, tokenTransfers] = await Promise.all([
     fetchBlockscoutTransactions({
       baseUrl: env.citreascanApiUrl,
@@ -1069,6 +1101,113 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       existing.tx_count += 1;
       existing.volume_usd += appVolumeUsd;
       appBreakdown.set(appClassification.app.id, existing);
+    }
+  }
+
+  if (sourceBridgeApps.length > 0) {
+    const [ethTransactions, ethTokenTransfers] = await Promise.all([
+      fetchBlockscoutTransactions({
+        baseUrl: ETH_BLOCKSCOUT_V2_URL,
+        wallet,
+        startTimestamp,
+        endTimestamp
+      }),
+      fetchBlockscoutTokenTransfers({
+        baseUrl: ETH_BLOCKSCOUT_V2_URL,
+        wallet,
+        startTimestamp,
+        endTimestamp
+      })
+    ]);
+
+    const sourceBridgeAddressMap = new Map();
+    for (const app of sourceBridgeApps) {
+      for (const entry of app?.walletMetrics?.addresses || []) {
+        const normalized = normalizeAddress(entry.address);
+        if (!normalized) continue;
+        sourceBridgeAddressMap.set(normalized, {
+          id: app.id,
+          label: app.label,
+          category: app?.walletMetrics?.category || "bridge",
+          methods: Array.isArray(app?.walletMetrics?.methods)
+            ? app.walletMetrics.methods.map((item) => String(item).toLowerCase())
+            : [],
+          destinationChainId: Number(app?.walletMetrics?.destinationChainId || env.citreaChainId)
+        });
+      }
+    }
+
+    const ethTransfersByHash = new Map();
+    for (const transfer of ethTokenTransfers) {
+      const txHash = String(transfer?.transaction_hash || "").toLowerCase();
+      if (!txHash) continue;
+      const list = ethTransfersByHash.get(txHash) || [];
+      list.push(transfer);
+      ethTransfersByHash.set(txHash, list);
+    }
+
+    for (const tx of ethTransactions) {
+      const txHash = String(tx?.hash || "").toLowerCase();
+      const destination = normalizeAddress(tx?.to?.hash || tx?.to);
+      if (!txHash || !destination) continue;
+
+      const app = sourceBridgeAddressMap.get(destination);
+      if (!app) continue;
+
+      const status = String(tx?.status || tx?.result || "").toLowerCase();
+      if (status !== "ok" && status !== "success") continue;
+
+      const methodCall = String(tx?.decoded_input?.method_call || tx?.method || "").toLowerCase();
+      if (app.methods.length > 0 && !app.methods.some((method) => methodCall.includes(method))) {
+        continue;
+      }
+      if (!txTargetsChainId(tx, app.destinationChainId)) {
+        continue;
+      }
+
+      const txTransfers = ethTransfersByHash.get(txHash) || [];
+      const walletOutTransfers = txTransfers.filter((transfer) => {
+        const from = normalizeAddress(transfer?.from?.hash || transfer?.from);
+        const to = normalizeAddress(transfer?.to?.hash || transfer?.to);
+        return from === walletAddress && to === destination;
+      });
+
+      let bridgeVolumeCandidate = null;
+      if (walletOutTransfers.length > 0) {
+        const candidates = await Promise.all(
+          walletOutTransfers.map((transfer) => buildPricedTransferCandidate(transfer, tx.timestamp))
+        );
+        bridgeVolumeCandidate = maxUsdCandidate(candidates);
+      }
+
+      if (!bridgeVolumeCandidate && BigInt(tx?.value || "0") > 0n) {
+        const nativeAmount = Number(ethers.formatEther(tx.value));
+        const nativePrice = await resolveNativeUsdPrice(env.ethChainId, tx.timestamp).catch(() => null);
+        if (nativePrice) {
+          bridgeVolumeCandidate = {
+            symbol: "ETH",
+            amount: nativeAmount,
+            usd: nativeAmount * nativePrice.price
+          };
+        }
+      }
+
+      if (!bridgeVolumeCandidate) continue;
+
+      bridgeTxCount += 1;
+      bridgeInflowUsdTotal += Number(bridgeVolumeCandidate.usd || 0);
+      bridgeSourceLabels.add(app.label);
+
+      const existing = appBreakdown.get(app.id) || {
+        id: app.id,
+        label: app.label,
+        category: app.category,
+        tx_count: 0,
+        volume_usd: 0
+      };
+      existing.tx_count += 1;
+      existing.volume_usd += Number(bridgeVolumeCandidate.usd || 0);
+      appBreakdown.set(app.id, existing);
     }
   }
 
