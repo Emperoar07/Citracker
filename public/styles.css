@@ -677,6 +677,24 @@ tbody tr:last-child td {
   scrollbar-width: thin;
 }
 
+.site-credit {
+  margin-top: 18px;
+  padding: 0 4px 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.site-credit a {
+  color: var(--lime);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-credit a:hover {
+  text-decoration: underline;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
