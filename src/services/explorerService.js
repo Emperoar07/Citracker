@@ -695,21 +695,7 @@ async function inferRelayBridgeSourceLabel({
     const inferred = inferBridgeSystemLabel(metadata, address) || inferBridgeSourceLabel(metadata);
     if (inferred) return inferred;
   }
-
-  const tx = await fetchTransactionDetails(baseUrl, txHash);
-  const methodCall = String(tx?.decoded_input?.method_call || tx?.method || "").toLowerCase();
-  const txTo = normalizeAddress(tx?.to?.hash || tx?.to);
-  const txToMeta = txTo ? await getAddressMetadata(baseUrl, txTo) : null;
-  const txToName = String(txToMeta?.name || "").toLowerCase();
-
-  if (methodCall.includes("process")) {
-    return "Bridge settlement processor";
-  }
-  if (methodCall.includes("multicall") && txToName.includes("swaprouter")) {
-    return "Bridge-routed swap";
-  }
-
-  return "Official bridge relay";
+  return null;
 }
 
 async function classifyBridgeTransfer(
@@ -792,6 +778,7 @@ async function classifyBridgeTransfer(
       walletAddress,
       counterparty
     });
+    if (!sourceLabel) return null;
   } else if (!isBridgeLike) {
     return null;
   } else if (!trackedSource) {
