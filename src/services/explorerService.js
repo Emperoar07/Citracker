@@ -44,6 +44,7 @@ const STATIC_DEX_LABELS = new Map([
 let trackedDexCache = { value: null, loadedAt: 0 };
 let trackedAppCache = { value: null, loadedAt: 0 };
 const transactionTransferCache = new Map();
+const transactionDetailCache = new Map();
 const ETH_BLOCKSCOUT_V2_URL = "https://eth.blockscout.com/api/v2";
 const STATIC_BRIDGE_DESTINATIONS = new Set([
   "0x41710804cab0974638e1504db723d7bddec22e30",
@@ -203,6 +204,23 @@ async function fetchTransactionTokenTransfers({ baseUrl, txHash }) {
   }
 }
 
+async function fetchTransactionDetails(baseUrl, txHash) {
+  const normalizedHash = String(txHash || "").toLowerCase();
+  if (!normalizedHash) return null;
+  if (transactionDetailCache.has(normalizedHash)) {
+    return transactionDetailCache.get(normalizedHash);
+  }
+
+  try {
+    const data = await fetchJson(`${baseUrl.replace(/\/$/, "")}/transactions/${normalizedHash}`);
+    transactionDetailCache.set(normalizedHash, data);
+    return data;
+  } catch {
+    transactionDetailCache.set(normalizedHash, null);
+    return null;
+  }
+}
+
 async function fetchAddressTokenBalances(baseUrl, wallet) {
   if (!baseUrl) return [];
 
@@ -304,11 +322,15 @@ async function getTrackedBridgeDestinations() {
 
   const tracked = new Map();
   for (const address of STATIC_BRIDGE_DESTINATIONS) {
-    tracked.set(address, "Canonical bridge");
+    const metadata = await getAddressMetadata(env.citreascanApiUrl, address);
+    tracked.set(address, inferBridgeSystemLabel(metadata, address) || "Canonical bridge");
   }
   for (const row of result.rows) {
     const normalized = normalizeAddress(row.contract_address);
-    if (normalized) tracked.set(normalized, "Canonical bridge");
+    if (normalized) {
+      const metadata = await getAddressMetadata(env.citreascanApiUrl, normalized);
+      tracked.set(normalized, inferBridgeSystemLabel(metadata, normalized) || "Canonical bridge");
+    }
   }
 
   const trackedMetricApps = await getTrackedMetricApps();
@@ -337,18 +359,46 @@ function getMetadataBridgeLabels(metadata) {
   return labels;
 }
 
-function inferBridgeSourceLabel(metadata) {
+function inferBridgeSystemLabel(metadata, address = null) {
+  const normalizedAddress = normalizeAddress(address);
   const combined = getMetadataBridgeLabels(metadata).join(" ").toLowerCase();
-  if (!combined) return null;
+
   if (combined.includes("squid")) return "Squid";
-  if (combined.includes("relay")) return "Relay";
   if (combined.includes("symbiosis")) return "Symbiosis";
   if (combined.includes("clementine")) return "Clementine";
   if (combined.includes("stargate")) return "Stargate";
   if (combined.includes("avail")) return "Avail Nexus";
   if (combined.includes("atomiq")) return "Atomiq";
-  if (combined.includes("hyperlane") || combined.includes("hyp")) return "Hyperlane-style transfer";
+  if (
+    combined.includes("destinationousdc") ||
+    combined.includes("destinationousdt") ||
+    combined.includes("stablecoinbridge")
+  ) {
+    return "Stablecoin bridge";
+  }
+  if (
+    combined.includes("wbtcoft") ||
+    combined.includes("hyperc20collateral") ||
+    combined.includes("hyperlane") ||
+    combined.includes("hyp")
+  ) {
+    return "Hyperlane bridge";
+  }
+  if (normalizedAddress === "0x3100000000000000000000000000000000000002") {
+    return "Bitcoin system bridge";
+  }
   if (combined.includes("btc")) return "Bitcoin system bridge";
+  if (combined.includes("bridge")) return "Canonical bridge";
+
+  return null;
+}
+
+function inferBridgeSourceLabel(metadata) {
+  const specific = inferBridgeSystemLabel(metadata);
+  if (specific) return specific;
+  const combined = getMetadataBridgeLabels(metadata).join(" ").toLowerCase();
+  if (!combined) return null;
+  if (combined.includes("relay")) return "Relay";
   if (combined.includes("bridge") || combined.includes("depository") || combined.includes("solver") || combined.includes("unlocker")) {
     return "Bridge flow";
   }
@@ -616,6 +666,52 @@ function transferMatchesToken(a, b) {
   return Boolean(tokenA && tokenB && tokenA === tokenB);
 }
 
+async function inferRelayBridgeSourceLabel({
+  baseUrl,
+  txHash,
+  txTransfers,
+  trackedBridgeDestinations,
+  walletAddress,
+  counterparty
+}) {
+  const candidateAddresses = new Set();
+
+  for (const item of txTransfers || []) {
+    const from = normalizeAddress(item?.from?.hash || item?.from);
+    const to = normalizeAddress(item?.to?.hash || item?.to);
+    if (from && from !== walletAddress && from !== ZERO_ADDRESS) candidateAddresses.add(from);
+    if (to && to !== walletAddress && to !== ZERO_ADDRESS) candidateAddresses.add(to);
+  }
+
+  if (counterparty) candidateAddresses.add(counterparty);
+
+  for (const address of candidateAddresses) {
+    const tracked = trackedBridgeDestinations.get(address);
+    if (tracked) return tracked;
+  }
+
+  for (const address of candidateAddresses) {
+    const metadata = await getAddressMetadata(baseUrl, address);
+    const inferred = inferBridgeSystemLabel(metadata, address) || inferBridgeSourceLabel(metadata);
+    if (inferred) return inferred;
+  }
+
+  const tx = await fetchTransactionDetails(baseUrl, txHash);
+  const methodCall = String(tx?.decoded_input?.method_call || tx?.method || "").toLowerCase();
+  const txTo = normalizeAddress(tx?.to?.hash || tx?.to);
+  const txToMeta = txTo ? await getAddressMetadata(baseUrl, txTo) : null;
+  const txToName = String(txToMeta?.name || "").toLowerCase();
+
+  if (methodCall.includes("process")) {
+    return "Bridge settlement processor";
+  }
+  if (methodCall.includes("multicall") && txToName.includes("swaprouter")) {
+    return "Bridge-routed swap";
+  }
+
+  return "Official bridge relay";
+}
+
 async function classifyBridgeTransfer(
   transfer,
   walletAddress,
@@ -688,7 +784,14 @@ async function classifyBridgeTransfer(
       priorRelay;
 
     if (!relayBridgeLike) return null;
-    sourceLabel = "Official bridge relay";
+    sourceLabel = await inferRelayBridgeSourceLabel({
+      baseUrl: env.citreascanApiUrl,
+      txHash,
+      txTransfers,
+      trackedBridgeDestinations,
+      walletAddress,
+      counterparty
+    });
   } else if (!isBridgeLike) {
     return null;
   } else if (!trackedSource) {
