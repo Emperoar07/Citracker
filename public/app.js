@@ -258,7 +258,7 @@ function renderNetworkSummary(payload) {
       label: "Chain Transactions (24h)",
       value: metrics.transactions_today,
       source: "Explorer",
-      meta: "Rolling 24h from explorer total tx"
+      meta: "Explorer 24h snapshot"
     },
     { label: "Citrea DEX Volume 24h (USD)", value: metrics.dex_volume_24h_usd, source: dex24hSource }
   ];
