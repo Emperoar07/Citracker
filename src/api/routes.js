@@ -267,6 +267,12 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       if (Number(walletBalances.total_usd || 0) > Number(base.balances.total_usd || 0)) {
         base.balances.total_usd = String(walletBalances.total_usd || "0");
       }
+      if (Number(walletBalances.cbtc_amount || 0) > Number(base.balances.cbtc_amount || 0)) {
+        base.balances.cbtc_amount = String(walletBalances.cbtc_amount || "0");
+      }
+      if (Number(walletBalances.cbtc_usd || 0) > Number(base.balances.cbtc_usd || 0)) {
+        base.balances.cbtc_usd = String(walletBalances.cbtc_usd || "0");
+      }
       if (Array.isArray(walletBalances.top_tokens) && walletBalances.top_tokens.length > 0) {
         base.balances.top_tokens = walletBalances.top_tokens;
       }

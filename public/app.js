@@ -163,6 +163,12 @@ function renderKpis(summary) {
   const cards = [
     { label: "Bridge Tx Count", value: summary.bridge.tx_count },
     { label: "Bridge Total (USDT)", value: summary.bridge.volume_usd },
+    {
+      label: "Available cBTC",
+      value: summary.balances?.cbtc_amount,
+      meta: `USD: ${money(summary.balances?.cbtc_usd)}`,
+      formatter: number
+    },
     { label: "Available Token Balance (USDT)", value: summary.balances?.total_usd, meta: `Tokens: ${balanceMeta}` },
     { label: "Total Wallet Volume (USDT)", value: summary.total_activity_volume_usd },
     { label: "DEX Swap Count", value: summary.dex.swap_count },
@@ -173,7 +179,7 @@ function renderKpis(summary) {
     .map((card) => `
       <div class="kpi">
         <div class="label">${card.label}</div>
-        <div class="value">${money(card.value)}</div>
+        <div class="value">${(card.formatter || money)(card.value)}</div>
         ${card.meta ? `<div class="meta">${card.meta}</div>` : ""}
       </div>`)
     .join("");

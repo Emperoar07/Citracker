@@ -27,6 +27,8 @@ export function coerceSummaryPayload(dbSummary) {
     balances: {
       token_count: Number(dbSummary.balance_token_count || 0),
       total_usd: toDecimalString(dbSummary.balance_total_usd),
+      cbtc_amount: toDecimalString(dbSummary.balance_cbtc_amount),
+      cbtc_usd: toDecimalString(dbSummary.balance_cbtc_usd),
       top_tokens: Array.isArray(dbSummary.balance_top_tokens) ? dbSummary.balance_top_tokens : []
     },
     gas: {

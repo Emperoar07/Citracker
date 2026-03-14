@@ -776,6 +776,8 @@ export async function getCitreaWalletTokenBalances(wallet) {
       enabled: false,
       token_count: 0,
       total_usd: "0",
+      cbtc_amount: "0",
+      cbtc_usd: "0",
       top_tokens: [],
       errors: []
     };
@@ -785,6 +787,8 @@ export async function getCitreaWalletTokenBalances(wallet) {
   const nowIso = new Date().toISOString();
   const balances = [];
   let totalUsd = 0;
+  let cbtcAmount = 0;
+  let cbtcUsd = 0;
 
   for (const row of rows) {
     const token = row?.token || {};
@@ -812,6 +816,11 @@ export async function getCitreaWalletTokenBalances(wallet) {
     const usd = spotPrice ? amount * Number(spotPrice.price || 0) : 0;
     totalUsd += Number.isFinite(usd) ? usd : 0;
 
+    if (String(symbol).trim().toLowerCase() === "cbtc") {
+      cbtcAmount += amount;
+      cbtcUsd += Number.isFinite(usd) ? usd : 0;
+    }
+
     balances.push({
       token: symbol,
       amount: String(amount),
@@ -830,6 +839,8 @@ export async function getCitreaWalletTokenBalances(wallet) {
     enabled: true,
     token_count: balances.length,
     total_usd: String(totalUsd),
+    cbtc_amount: String(cbtcAmount),
+    cbtc_usd: String(cbtcUsd),
     top_tokens: balances.slice(0, 3),
     errors: []
   };
