@@ -966,8 +966,29 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
   const appBreakdown = new Map();
   const bridgeByTxDirection = new Map();
   const bridgeSourceLabels = new Set();
+  const bridgeBreakdown = new Map();
   const gasItems = [];
   const swapItems = [];
+
+  function addBridgeBreakdownRow(sourceLabel, direction, volumeCandidate) {
+    const label = String(sourceLabel || "Bridge flow");
+    const usd = Number(volumeCandidate?.usd || 0);
+    const existing = bridgeBreakdown.get(label) || {
+      source: label,
+      tx_count: 0,
+      inflow_usd: 0,
+      outflow_usd: 0,
+      volume_usd: 0
+    };
+    existing.tx_count += 1;
+    if (direction === "outflow") {
+      existing.outflow_usd += usd;
+    } else {
+      existing.inflow_usd += usd;
+    }
+    existing.volume_usd += usd;
+    bridgeBreakdown.set(label, existing);
+  }
 
   for (const transfer of tokenTransfers) {
     const bridgeTransfer = await classifyBridgeTransfer(
@@ -998,6 +1019,11 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
     } else {
       bridgeOutflowUsdTotal += usd;
     }
+    addBridgeBreakdownRow(
+      bridgeTransfer.sourceLabel,
+      bridgeTransfer.direction,
+      bridgeTransfer.volumeCandidate
+    );
   }
 
   for (const tx of transactions) {
@@ -1223,6 +1249,7 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
       bridgeTxCount += 1;
       bridgeInflowUsdTotal += Number(bridgeVolumeCandidate.usd || 0);
       bridgeSourceLabels.add(app.label);
+      addBridgeBreakdownRow(app.label, "inflow", bridgeVolumeCandidate);
 
       const existing = appBreakdown.get(app.id) || {
         id: app.id,
@@ -1245,6 +1272,11 @@ export async function getCitreaExplorerActivity(wallet, fromIso, toIso, options 
     app_tx_count: appTxCount,
     bridge_tx_count: bridgeTxCount,
     bridge_sources_detected: [...bridgeSourceLabels],
+    bridge_breakdown: [...bridgeBreakdown.values()].sort((a, b) => {
+      const volumeDiff = Number(b.volume_usd || 0) - Number(a.volume_usd || 0);
+      if (volumeDiff !== 0) return volumeDiff;
+      return Number(b.tx_count || 0) - Number(a.tx_count || 0);
+    }),
     bridge_inflow_usd_total: String(bridgeInflowUsdTotal),
     bridge_outflow_usd_total: String(bridgeOutflowUsdTotal),
     bridge_volume_usd_total: String(bridgeInflowUsdTotal + bridgeOutflowUsdTotal),

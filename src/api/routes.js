@@ -84,11 +84,38 @@ function normalizeBridgeSourceLabel(source) {
   const value = String(source || "").toLowerCase();
   if (!value) return null;
   if (value.includes("canonical")) return "Canonical bridge";
+  if (value.includes("relay")) return "Official bridge relay";
   if (value.includes("squid")) return "Squid";
   if (value.includes("symbiosis")) return "Symbiosis";
   if (value.includes("btc")) return "Bitcoin system bridge";
   if (value.includes("hyperlane") || value.includes("hyp")) return "Hyperlane-style transfer";
   return source;
+}
+
+function mergeBridgeBreakdownRows(rows = []) {
+  const breakdownMap = new Map();
+
+  for (const row of rows) {
+    const source = normalizeBridgeSourceLabel(row?.source) || "Bridge flow";
+    const existing = breakdownMap.get(source) || {
+      source,
+      tx_count: 0,
+      inflow_usd: 0,
+      outflow_usd: 0,
+      volume_usd: 0
+    };
+    existing.tx_count += Number(row?.tx_count || 0);
+    existing.inflow_usd += Number(row?.inflow_usd || 0);
+    existing.outflow_usd += Number(row?.outflow_usd || 0);
+    existing.volume_usd += Number(row?.volume_usd || 0);
+    breakdownMap.set(source, existing);
+  }
+
+  return [...breakdownMap.values()].sort((a, b) => {
+    const volumeDiff = Number(b.volume_usd || 0) - Number(a.volume_usd || 0);
+    if (volumeDiff !== 0) return volumeDiff;
+    return Number(b.tx_count || 0) - Number(a.tx_count || 0);
+  });
 }
 
 router.get("/network/summary", async (req, res, next) => {
@@ -153,37 +180,64 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
         explorer.citrea_tx_count
       );
     }
-    if (citreaFallback?.enabled) {
-      const mergedBridgeSources = new Set((base.bridge.sources_detected || []).map(normalizeBridgeSourceLabel).filter(Boolean));
-      for (const source of citreaFallback.bridge_sources_detected || []) {
-        const normalized = normalizeBridgeSourceLabel(source);
-        if (normalized) mergedBridgeSources.add(normalized);
-      }
-      base.bridge.sources_detected = [...mergedBridgeSources];
-      base.citrea_total_tx_count = Math.max(
-        Number(base.citrea_total_tx_count || 0),
-        Number(citreaFallback.tx_count || 0)
-      );
-      base.bridge.tx_count = Math.max(
-        Number(base.bridge.tx_count || 0),
-        Number(citreaFallback.bridge_tx_count || 0)
-      );
-      if (Number(citreaFallback.bridge_inflow_usd_total || 0) > Number(base.bridge.inflow_usd || 0)) {
-        base.bridge.inflow_usd = String(citreaFallback.bridge_inflow_usd_total || "0");
-      }
-      if (Number(citreaFallback.bridge_outflow_usd_total || 0) > Number(base.bridge.outflow_usd || 0)) {
-        base.bridge.outflow_usd = String(citreaFallback.bridge_outflow_usd_total || "0");
-      }
-      base.bridge.volume_usd = String(
-        Number(base.bridge.inflow_usd || 0) + Number(base.bridge.outflow_usd || 0)
-      );
-      base.bridge.netflow_usd = String(
-        Number(base.bridge.inflow_usd || 0) - Number(base.bridge.outflow_usd || 0)
-      );
-      base.gas.tx_count = Math.max(
-        Number(base.gas.tx_count || 0),
-        Number(citreaFallback.tx_count || 0)
-      );
+      if (citreaFallback?.enabled) {
+        const mergedBridgeBreakdown = mergeBridgeBreakdownRows([
+          ...(Array.isArray(base.bridge.breakdown) ? base.bridge.breakdown : []),
+          ...(Array.isArray(citreaFallback.bridge_breakdown) ? citreaFallback.bridge_breakdown : [])
+        ]);
+        const mergedBridgeSources = new Set((base.bridge.sources_detected || []).map(normalizeBridgeSourceLabel).filter(Boolean));
+        for (const source of citreaFallback.bridge_sources_detected || []) {
+          const normalized = normalizeBridgeSourceLabel(source);
+          if (normalized) mergedBridgeSources.add(normalized);
+        }
+        for (const row of mergedBridgeBreakdown) {
+          if (row?.source) mergedBridgeSources.add(row.source);
+        }
+        base.bridge.sources_detected = [...mergedBridgeSources];
+        base.bridge.breakdown = mergedBridgeBreakdown;
+        base.citrea_total_tx_count = Math.max(
+          Number(base.citrea_total_tx_count || 0),
+          Number(citreaFallback.tx_count || 0)
+        );
+
+        if (mergedBridgeBreakdown.length > 0) {
+          const totals = mergedBridgeBreakdown.reduce(
+            (acc, row) => {
+              acc.tx_count += Number(row?.tx_count || 0);
+              acc.inflow_usd += Number(row?.inflow_usd || 0);
+              acc.outflow_usd += Number(row?.outflow_usd || 0);
+              acc.volume_usd += Number(row?.volume_usd || 0);
+              return acc;
+            },
+            { tx_count: 0, inflow_usd: 0, outflow_usd: 0, volume_usd: 0 }
+          );
+          base.bridge.tx_count = totals.tx_count;
+          base.bridge.inflow_usd = String(totals.inflow_usd);
+          base.bridge.outflow_usd = String(totals.outflow_usd);
+          base.bridge.volume_usd = String(totals.volume_usd);
+          base.bridge.netflow_usd = String(totals.inflow_usd - totals.outflow_usd);
+        } else {
+          base.bridge.tx_count = Math.max(
+            Number(base.bridge.tx_count || 0),
+            Number(citreaFallback.bridge_tx_count || 0)
+          );
+          if (Number(citreaFallback.bridge_inflow_usd_total || 0) > Number(base.bridge.inflow_usd || 0)) {
+            base.bridge.inflow_usd = String(citreaFallback.bridge_inflow_usd_total || "0");
+          }
+          if (Number(citreaFallback.bridge_outflow_usd_total || 0) > Number(base.bridge.outflow_usd || 0)) {
+            base.bridge.outflow_usd = String(citreaFallback.bridge_outflow_usd_total || "0");
+          }
+          base.bridge.volume_usd = String(
+            Number(base.bridge.inflow_usd || 0) + Number(base.bridge.outflow_usd || 0)
+          );
+          base.bridge.netflow_usd = String(
+            Number(base.bridge.inflow_usd || 0) - Number(base.bridge.outflow_usd || 0)
+          );
+        }
+        base.gas.tx_count = Math.max(
+          Number(base.gas.tx_count || 0),
+          Number(citreaFallback.tx_count || 0)
+        );
       base.dex.swap_count = Math.max(
         Number(base.dex.swap_count || 0),
         Number(citreaFallback.swap_count || 0)

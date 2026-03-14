@@ -4,6 +4,7 @@ const statusEl = document.getElementById("status");
 const bridgeSourceInfoEl = document.getElementById("bridgeSourceInfo");
 const kpiEl = document.getElementById("kpis");
 const walletBalancesEl = document.getElementById("walletBalances");
+const walletBridgeBreakdownEl = document.getElementById("walletBridgeBreakdown");
 const walletTopAppsEl = document.getElementById("walletTopApps");
 
 const networkStatusEl = document.getElementById("networkStatus");
@@ -195,6 +196,17 @@ function renderKpis(summary) {
         <div class="metric-label">${number(item.amount)} available</div>
       </div>
       <span class="metric-value">${money(item.usd)} USDT</span>
+    </div>`);
+
+  renderMetricList(walletBridgeBreakdownEl, summary.bridge?.breakdown || [], (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.source}</div>
+        <div class="metric-label">
+          ${money(item.tx_count)} tx | In ${money(item.inflow_usd)} | Out ${money(item.outflow_usd)}
+        </div>
+      </div>
+      <span class="metric-value">${money(item.volume_usd)} USDT</span>
     </div>`);
 
   renderMetricList(walletTopAppsEl, summary.usage?.top_apps || [], (item) => `

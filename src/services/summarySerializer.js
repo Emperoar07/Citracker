@@ -7,6 +7,7 @@ export function coerceSummaryPayload(dbSummary) {
     bridge: {
       tx_count: Number(dbSummary.bridge_tx_count || 0),
       sources_detected: Array.isArray(dbSummary.bridge_sources) ? dbSummary.bridge_sources : [],
+      breakdown: Array.isArray(dbSummary.bridge_breakdown) ? dbSummary.bridge_breakdown : [],
       inflow_usd: toDecimalString(dbSummary.bridge_inflow_usd),
       outflow_usd: toDecimalString(dbSummary.bridge_outflow_usd),
       volume_usd: toDecimalString(dbSummary.bridge_volume_usd),
