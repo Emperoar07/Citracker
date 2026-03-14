@@ -408,11 +408,11 @@ function renderGasSummary(payload) {
     : "Explorer gas update unavailable";
   const sourceLabel =
     gas.gas_spent_today_source === "live_from_explorer_fees"
-      ? "live fee sum"
+      ? "Explorer live fee sum"
       : gas.gas_spent_today_source === "indexed_fee_rows"
-        ? "indexed fees"
-        : "fee estimate";
-  gasLiveLabelEl.textContent = `Gas polling every 60s | ${sourceLabel} | UTC reset ${gas.gas_day_reset_utc || "00:00"}`;
+        ? "Indexed fee rows"
+        : "Fee estimate";
+  gasLiveLabelEl.textContent = `UTC reset ${gas.gas_day_reset_utc || "00:00"} | ${sourceLabel} | Polling every 60s`;
 }
 
 async function loadWalletData() {
