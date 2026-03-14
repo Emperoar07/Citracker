@@ -250,13 +250,16 @@ function renderNetworkSummary(payload) {
   const dex24hSource =
     metrics.dex_volume_24h_source === "indexed_live" ? "Citracker" : "DefiLlama";
   const cards = [
-    { label: "Tracked Activity Volume (USD)", value: metrics.total_activity_volume_usd, source: "Citracker" },
-    { label: "Tracked Bridge Inflow (USD)", value: metrics.total_inflow_usd, source: "Citracker" },
     { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama" },
     { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama" },
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
     { label: "Total Chain Transactions", value: metrics.total_transactions, source: "Explorer" },
-    { label: "Chain Transactions (24h)", value: metrics.transactions_today, source: "Explorer" },
+    {
+      label: "Chain Transactions (24h)",
+      value: metrics.transactions_today,
+      source: "Explorer",
+      meta: "Rolling 24h from explorer total tx"
+    },
     { label: "Citrea DEX Volume 24h (USD)", value: metrics.dex_volume_24h_usd, source: dex24hSource }
   ];
 
@@ -268,6 +271,7 @@ function renderNetworkSummary(payload) {
           <span class="metric-source-tag metric-source-tag-inline">${card.source}</span>
         </div>
         <div class="value">${money(card.value)}</div>
+        ${card.meta ? `<div class="meta">${card.meta}</div>` : ""}
       </div>`)
     .join("");
 
