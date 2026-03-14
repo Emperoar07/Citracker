@@ -29,6 +29,7 @@ export function coerceSummaryPayload(dbSummary) {
       total_usd: toDecimalString(dbSummary.balance_total_usd),
       cbtc_amount: toDecimalString(dbSummary.balance_cbtc_amount),
       cbtc_usd: toDecimalString(dbSummary.balance_cbtc_usd),
+      all_tokens: Array.isArray(dbSummary.balance_all_tokens) ? dbSummary.balance_all_tokens : [],
       top_tokens: Array.isArray(dbSummary.balance_top_tokens) ? dbSummary.balance_top_tokens : []
     },
     gas: {

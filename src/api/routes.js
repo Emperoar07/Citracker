@@ -274,6 +274,9 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
       if (Number(walletBalances.cbtc_usd || 0) > Number(base.balances.cbtc_usd || 0)) {
         base.balances.cbtc_usd = String(walletBalances.cbtc_usd || "0");
       }
+      if (Array.isArray(walletBalances.all_tokens) && walletBalances.all_tokens.length > 0) {
+        base.balances.all_tokens = walletBalances.all_tokens;
+      }
       if (Array.isArray(walletBalances.top_tokens) && walletBalances.top_tokens.length > 0) {
         base.balances.top_tokens = walletBalances.top_tokens;
       }

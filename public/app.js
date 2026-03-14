@@ -3,6 +3,7 @@ const loadBtn = document.getElementById("loadBtn");
 const statusEl = document.getElementById("status");
 const bridgeSourceInfoEl = document.getElementById("bridgeSourceInfo");
 const kpiEl = document.getElementById("kpis");
+const walletBalancesEl = document.getElementById("walletBalances");
 const walletTopAppsEl = document.getElementById("walletTopApps");
 
 const networkStatusEl = document.getElementById("networkStatus");
@@ -166,7 +167,7 @@ function renderKpis(summary) {
     {
       label: "Available cBTC",
       value: summary.balances?.cbtc_amount,
-      meta: `USD: ${money(summary.balances?.cbtc_usd)} · includes wrapped Citrea BTC`,
+      meta: `USD: ${money(summary.balances?.cbtc_usd)} - native fee token only`,
       formatter: number
     },
     { label: "Available Token Balance (USDT)", value: summary.balances?.total_usd, meta: `Tokens: ${balanceMeta}` },
@@ -186,6 +187,15 @@ function renderKpis(summary) {
 
   bridgeSourceInfoEl.textContent = "";
   bridgeSourceInfoEl.style.display = "none";
+
+  renderMetricList(walletBalancesEl, summary.balances?.all_tokens || [], (item) => `
+    <div class="metric-row metric-row-stack">
+      <div>
+        <div class="metric-value metric-value-left">${item.token}</div>
+        <div class="metric-label">${number(item.amount)} available</div>
+      </div>
+      <span class="metric-value">${money(item.usd)} USDT</span>
+    </div>`);
 
   renderMetricList(walletTopAppsEl, summary.usage?.top_apps || [], (item) => `
     <div class="metric-row metric-row-stack">

@@ -53,8 +53,6 @@ const STATIC_BRIDGE_DESTINATIONS = new Set([
   "0x8d11020286af9ecf7e5d7bd79699c391b224a0bd",
   "0xebeb7f52892df3066885f4d31137a76327f6348b"
 ]);
-const CITREA_BTC_BALANCE_SYMBOLS = new Set(["CBTC", "WCBTC", "WCBTC.E", "WCBTCE", "SYBTC"]);
-
 function shortAddress(address) {
   if (!address || typeof address !== "string") return "-";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -325,6 +323,38 @@ async function getTrackedBridgeDestinations() {
   return tracked;
 }
 
+function getMetadataBridgeLabels(metadata) {
+  const labels = [
+    metadata?.name,
+    ...(Array.isArray(metadata?.public_tags) ? metadata.public_tags.map((item) => item?.name) : []),
+    ...(Array.isArray(metadata?.watchlist_names) ? metadata.watchlist_names : []),
+    ...(Array.isArray(metadata?.implementations) ? metadata.implementations.map((item) => item?.name) : []),
+    ...(Array.isArray(metadata?.metadata?.tags) ? metadata.metadata.tags.map((item) => item?.name) : [])
+  ]
+    .filter(Boolean)
+    .map((item) => String(item));
+
+  return labels;
+}
+
+function inferBridgeSourceLabel(metadata) {
+  const combined = getMetadataBridgeLabels(metadata).join(" ").toLowerCase();
+  if (!combined) return null;
+  if (combined.includes("squid")) return "Squid";
+  if (combined.includes("relay")) return "Relay";
+  if (combined.includes("symbiosis")) return "Symbiosis";
+  if (combined.includes("clementine")) return "Clementine";
+  if (combined.includes("stargate")) return "Stargate";
+  if (combined.includes("avail")) return "Avail Nexus";
+  if (combined.includes("atomiq")) return "Atomiq";
+  if (combined.includes("hyperlane") || combined.includes("hyp")) return "Hyperlane-style transfer";
+  if (combined.includes("btc")) return "Bitcoin system bridge";
+  if (combined.includes("bridge") || combined.includes("depository") || combined.includes("solver") || combined.includes("unlocker")) {
+    return "Bridge flow";
+  }
+  return null;
+}
+
 async function verifySymbiosisChainSupport(config) {
   const url = config?.api?.chainsUrl;
   if (!url) return true;
@@ -576,14 +606,8 @@ function getAppClassification(tx, walletAddress, txTransfers, trackedApps) {
 }
 
 function addressLooksBridgeLike(metadata) {
-  const labels = [
-    metadata?.name,
-    ...(Array.isArray(metadata?.implementations) ? metadata.implementations.map((item) => item?.name) : [])
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return /hyp(?:erc20|native)|hyperlane|oft|bridge/i.test(labels);
+  const labels = getMetadataBridgeLabels(metadata).join(" ");
+  return /hyp(?:erc20|native)|hyperlane|oft|bridge|relay|squid|symbiosis|clementine|depository|unlocker/i.test(labels);
 }
 
 function transferMatchesToken(a, b) {
@@ -619,7 +643,7 @@ async function classifyBridgeTransfer(
   const counterpartyMeta = await getAddressMetadata(env.citreascanApiUrl, counterparty);
   const trackedSource = trackedBridgeDestinations.get(counterparty) || null;
   const isBridgeLike = Boolean(trackedSource) || addressLooksBridgeLike(counterpartyMeta);
-  let sourceLabel = trackedSource || "Bridge flow";
+  let sourceLabel = trackedSource || inferBridgeSourceLabel(counterpartyMeta) || "Bridge flow";
 
   if (!isBridgeLike && direction === "inflow") {
     const isKnownDexCounterparty =
@@ -810,6 +834,7 @@ export async function getCitreaWalletTokenBalances(wallet) {
       total_usd: "0",
       cbtc_amount: "0",
       cbtc_usd: "0",
+      all_tokens: [],
       top_tokens: [],
       errors: []
     };
@@ -848,7 +873,7 @@ export async function getCitreaWalletTokenBalances(wallet) {
     const usd = spotPrice ? amount * Number(spotPrice.price || 0) : 0;
     totalUsd += Number.isFinite(usd) ? usd : 0;
 
-    if (CITREA_BTC_BALANCE_SYMBOLS.has(String(symbol).trim().toUpperCase())) {
+    if (String(symbol).trim().toUpperCase() === "CBTC") {
       cbtcAmount += amount;
       cbtcUsd += Number.isFinite(usd) ? usd : 0;
     }
@@ -873,6 +898,7 @@ export async function getCitreaWalletTokenBalances(wallet) {
     total_usd: String(totalUsd),
     cbtc_amount: String(cbtcAmount),
     cbtc_usd: String(cbtcUsd),
+    all_tokens: balances,
     top_tokens: balances.slice(0, 3),
     errors: []
   };
