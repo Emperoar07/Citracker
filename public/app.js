@@ -219,9 +219,6 @@ function renderKpis(summary) {
 
 function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
-  const todayLabel = metrics.transactions_today_date
-    ? `Tx Today (${shortDateLabel(metrics.transactions_today_date)})`
-    : "Tx Today";
   const dex24hSource =
     metrics.dex_volume_24h_source === "indexed_live" ? "Citracker" : "DefiLlama";
   const cards = [
@@ -231,7 +228,7 @@ function renderNetworkSummary(payload) {
     { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama" },
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
     { label: "Total Chain Transactions", value: metrics.total_transactions, source: "Explorer" },
-    { label: "Chain Transactions Today", value: metrics.transactions_today, source: "Explorer" },
+    { label: "Chain Transactions (24h)", value: metrics.transactions_today, source: "Explorer" },
     { label: "Citrea DEX Volume 24h (USD)", value: metrics.dex_volume_24h_usd, source: dex24hSource }
   ];
 
@@ -261,7 +258,7 @@ function renderNetworkSummary(payload) {
   renderMetricList(todaySnapshotEl, [
     { label: "Tracked Active Wallets Today", value: metrics.active_wallets_today, source: "Citracker" },
     { label: "Failed Transactions Today", value: metrics.failed_tx_today, source: "Explorer" },
-    { label: "Chain Transactions Today", value: metrics.transactions_today, source: "Explorer" },
+    { label: "Chain Transactions (24h)", value: metrics.transactions_today, source: "Explorer" },
     { label: "Tracked DEX Swap Count Today", value: metrics.total_swap_count_today, source: "Citracker" }
   ], (item) => `
     <div class="metric-row">

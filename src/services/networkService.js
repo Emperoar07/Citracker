@@ -1030,16 +1030,12 @@ export async function getNetworkSummary() {
   ]);
 
   const liveTodayTransactions = explorer.error
-    ? { count: 0, date: utcDateString(), exact: false }
-    : await refreshLiveTransactionState(
-        explorer.total_transactions || 0,
-        explorer.latest_daily_transactions || explorer.transactions_today || 0,
-        explorer.latest_daily_transactions_date || null
-      ).catch(() => ({
-        count: explorer.latest_daily_transactions || explorer.transactions_today || 0,
-        date: explorer.latest_daily_transactions_date || utcDateString(),
-        exact: false
-      }));
+    ? { count: 0, date: null, exact: false }
+    : {
+        count: explorer.transactions_today || 0,
+        date: null,
+        exact: true
+      };
 
   const errors = [
     explorer.error,
