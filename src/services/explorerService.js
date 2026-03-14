@@ -53,6 +53,7 @@ const STATIC_BRIDGE_DESTINATIONS = new Set([
   "0x8d11020286af9ecf7e5d7bd79699c391b224a0bd",
   "0xebeb7f52892df3066885f4d31137a76327f6348b"
 ]);
+const CITREA_BTC_BALANCE_SYMBOLS = new Set(["CBTC", "WCBTC", "WCBTC.E", "WCBTCE", "SYBTC"]);
 
 function shortAddress(address) {
   if (!address || typeof address !== "string") return "-";
@@ -816,7 +817,7 @@ export async function getCitreaWalletTokenBalances(wallet) {
     const usd = spotPrice ? amount * Number(spotPrice.price || 0) : 0;
     totalUsd += Number.isFinite(usd) ? usd : 0;
 
-    if (String(symbol).trim().toLowerCase() === "cbtc") {
+    if (CITREA_BTC_BALANCE_SYMBOLS.has(String(symbol).trim().toUpperCase())) {
       cbtcAmount += amount;
       cbtcUsd += Number.isFinite(usd) ? usd : 0;
     }

@@ -166,7 +166,7 @@ function renderKpis(summary) {
     {
       label: "Available cBTC",
       value: summary.balances?.cbtc_amount,
-      meta: `USD: ${money(summary.balances?.cbtc_usd)}`,
+      meta: `USD: ${money(summary.balances?.cbtc_usd)} · includes wrapped Citrea BTC`,
       formatter: number
     },
     { label: "Available Token Balance (USDT)", value: summary.balances?.total_usd, meta: `Tokens: ${balanceMeta}` },
