@@ -101,7 +101,7 @@ async function run() {
   const dayStart = startOfUtcDay();
 
   const bridgeTodayTxs = await pool.query(
-    `SELECT DISTINCT bt.source_chain_id, bt.source_tx_hash, bt.destination_chain_id, bt.destination_tx_hash, bt.wallet_address
+    `SELECT DISTINCT bt.source_chain_id, bt.source_tx_hash, bt.destination_chain_id, bt.destination_tx_hash, bt.wallet_address, bt.block_timestamp
      FROM bridge_transfers bt
      LEFT JOIN tx_fees src_fee
        ON src_fee.chain_id = bt.source_chain_id
@@ -131,7 +131,7 @@ async function run() {
   const remainingBridge = Math.max(env.indexerMaxPendingItems - bridgeTodayTxs.rowCount, 0);
   if (remainingBridge > 0) {
     const bridgeBacklogTxs = await pool.query(
-      `SELECT DISTINCT bt.source_chain_id, bt.source_tx_hash, bt.destination_chain_id, bt.destination_tx_hash, bt.wallet_address
+      `SELECT DISTINCT bt.source_chain_id, bt.source_tx_hash, bt.destination_chain_id, bt.destination_tx_hash, bt.wallet_address, bt.block_timestamp
        FROM bridge_transfers bt
        LEFT JOIN tx_fees src_fee
          ON src_fee.chain_id = bt.source_chain_id
@@ -185,7 +185,7 @@ async function run() {
   }
 
   const dexTodayTxs = await pool.query(
-    `SELECT DISTINCT ds.chain_id, ds.tx_hash, ds.wallet_address
+    `SELECT DISTINCT ds.chain_id, ds.tx_hash, ds.wallet_address, ds.block_timestamp
      FROM dex_swaps ds
      LEFT JOIN tx_fees tf
        ON tf.chain_id = ds.chain_id
@@ -203,7 +203,7 @@ async function run() {
   const remainingDex = Math.max(env.indexerMaxPendingItems - dexTodayTxs.rowCount, 0);
   if (remainingDex > 0) {
     const dexBacklogTxs = await pool.query(
-      `SELECT DISTINCT ds.chain_id, ds.tx_hash, ds.wallet_address
+      `SELECT DISTINCT ds.chain_id, ds.tx_hash, ds.wallet_address, ds.block_timestamp
        FROM dex_swaps ds
        LEFT JOIN tx_fees tf
          ON tf.chain_id = ds.chain_id
