@@ -168,8 +168,8 @@ function renderKpis(summary) {
   const cbtcAmount = Number(summary.balances?.cbtc_amount || 0);
   const cbtcMeta =
     cbtcAmount > 0
-      ? `USD: ${money(summary.balances?.cbtc_usd)} - native fee token only`
-      : "No native cBTC currently held";
+      ? `USD: ${money(summary.balances?.cbtc_usd)} - native fee token only | Source: Citrea explorer coin balance`
+      : "No native cBTC currently held | Source: Citrea explorer coin balance";
 
   const cards = [
     { label: "Bridge Tx Count", value: summary.bridge.tx_count },
