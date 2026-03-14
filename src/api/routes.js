@@ -218,6 +218,19 @@ router.get("/wallet/:wallet/summary", async (req, res, next) => {
           base.bridge.outflow_usd = String(totals.outflow_usd);
           base.bridge.volume_usd = String(totals.volume_usd);
           base.bridge.netflow_usd = String(totals.inflow_usd - totals.outflow_usd);
+
+          for (const item of mergedBridgeBreakdown) {
+            const key = `${String(item.source || "bridge").toLowerCase()}::bridge`;
+            const existing = usageMap.get(key) || {
+              app: item.source || "Bridge",
+              category: "bridge",
+              tx_count: 0,
+              volume_usd: 0
+            };
+            existing.tx_count = Math.max(existing.tx_count, Number(item.tx_count || 0));
+            existing.volume_usd = Math.max(existing.volume_usd, Number(item.volume_usd || 0));
+            usageMap.set(key, existing);
+          }
         } else {
           base.bridge.tx_count = Math.max(
             Number(base.bridge.tx_count || 0),

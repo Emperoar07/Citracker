@@ -124,6 +124,15 @@ function renderMetricList(container, rows, formatter) {
   container.innerHTML = rows.map(formatter).join("");
 }
 
+function walletUsageMeta(item) {
+  const category = String(item?.category || "").toLowerCase();
+  const volume = money(item?.volume_usd);
+  if (category === "bridge") return `bridge | ${volume} USDT bridged`;
+  if (category === "dex") return `dex | ${volume} USDT swapped`;
+  if (category === "lending" || category === "yield") return `${category} | ${volume} USDT supplied`;
+  return `${category || "activity"} | ${volume} USDT activity`;
+}
+
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.style.color = isError ? "#ff6b6b" : "#c8b59d";
@@ -211,7 +220,7 @@ function renderKpis(summary) {
     <div class="metric-row metric-row-stack">
       <div>
         <div class="metric-value metric-value-left">${item.app}</div>
-        <div class="metric-label">${item.category} | ${money(item.volume_usd)} USDT touched</div>
+        <div class="metric-label">${walletUsageMeta(item)}</div>
       </div>
       <span class="metric-value">${money(item.tx_count)} tx</span>
     </div>`);
