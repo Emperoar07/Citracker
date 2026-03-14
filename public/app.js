@@ -20,8 +20,6 @@ const gasPriceUpdatedAtEl = document.getElementById("gasPriceUpdatedAt");
 const gasLiveLabelEl = document.getElementById("gasLiveLabel");
 const sourceHealthEl = document.getElementById("sourceHealth");
 const todaySnapshotEl = document.getElementById("todaySnapshot");
-const topBridgeRoutesEl = document.getElementById("topBridgeRoutes");
-const topTokensBridgedEl = document.getElementById("topTokensBridged");
 const topAppsByTxEl = document.getElementById("topAppsByTx");
 const topAppsByVolumeEl = document.getElementById("topAppsByVolume");
 
@@ -288,30 +286,11 @@ function renderNetworkSummary(payload) {
   renderMetricList(todaySnapshotEl, [
     { label: "Tracked Active Wallets Today", value: metrics.active_wallets_today, source: "Citracker" },
     { label: "Failed Transactions Today", value: metrics.failed_tx_today, source: "Explorer" },
-    { label: "Chain Transactions (24h)", value: metrics.transactions_today, source: "Explorer" },
     { label: "Tracked DEX Swap Count Today", value: metrics.total_swap_count_today, source: "Citracker" }
   ], (item) => `
     <div class="metric-row">
       <span class="metric-label">${item.label} <span class="metric-source-tag">${item.source}</span></span>
       <span class="metric-value">${money(item.value)}</span>
-    </div>`);
-
-  renderMetricList(topBridgeRoutesEl, metrics.top_bridge_routes_today, (item) => `
-    <div class="metric-row metric-row-stack">
-      <div>
-        <div class="metric-value metric-value-left">${formatTrackedName(item.route, "route")}</div>
-        <div class="metric-label">${money(item.tx_count)} tx</div>
-      </div>
-      <span class="metric-value">${money(item.volume_usd)} USD</span>
-    </div>`);
-
-  renderMetricList(topTokensBridgedEl, metrics.top_tokens_bridged_today, (item) => `
-    <div class="metric-row metric-row-stack">
-      <div>
-        <div class="metric-value metric-value-left">${item.token}</div>
-        <div class="metric-label">In ${money(item.inflow_usd)} | Out ${money(item.outflow_usd)}</div>
-      </div>
-      <span class="metric-value">${money(item.volume_usd)} USD</span>
     </div>`);
 
   renderMetricList(topAppsByTxEl, metrics.top_apps_by_tx_today, (item) => `
