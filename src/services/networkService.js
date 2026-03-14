@@ -6,6 +6,8 @@ import { buildCitreaAppSourceEntries } from "./sourceRegistry.js";
 import { getDuneCitreaCrossChecks, getDuneSourceEntry } from "./duneService.js";
 import { getNansenCitreaProbeResult, getNansenCitreaSourceEntry } from "./nansenService.js";
 
+const runtimeMemoryCache = new Map();
+
 async function fetchJson(url) {
   const res = await fetch(url, {
     signal: AbortSignal.timeout(env.externalFetchTimeoutMs)
@@ -28,31 +30,44 @@ async function ensureRuntimeCacheTable() {
 }
 
 async function getRuntimeCache(cacheKey) {
-  await ensureRuntimeCacheTable();
-  const pool = getPool();
-  const result = await pool.query(
-    `SELECT cache_value, updated_at
-     FROM runtime_cache
-     WHERE cache_key = $1`,
-    [cacheKey]
-  );
-  if (!result.rows[0]) return null;
-  return {
-    value: result.rows[0].cache_value,
-    updated_at: result.rows[0].updated_at
-  };
+  try {
+    await ensureRuntimeCacheTable();
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT cache_value, updated_at
+       FROM runtime_cache
+       WHERE cache_key = $1`,
+      [cacheKey]
+    );
+    if (!result.rows[0]) return runtimeMemoryCache.get(cacheKey) || null;
+    return {
+      value: result.rows[0].cache_value,
+      updated_at: result.rows[0].updated_at
+    };
+  } catch {
+    return runtimeMemoryCache.get(cacheKey) || null;
+  }
 }
 
 async function setRuntimeCache(cacheKey, value) {
-  await ensureRuntimeCacheTable();
-  const pool = getPool();
-  await pool.query(
-    `INSERT INTO runtime_cache (cache_key, cache_value, updated_at)
-     VALUES ($1, $2::jsonb, now())
-     ON CONFLICT (cache_key)
-     DO UPDATE SET cache_value = EXCLUDED.cache_value, updated_at = now()`,
-    [cacheKey, JSON.stringify(value)]
-  );
+  runtimeMemoryCache.set(cacheKey, {
+    value,
+    updated_at: new Date().toISOString()
+  });
+
+  try {
+    await ensureRuntimeCacheTable();
+    const pool = getPool();
+    await pool.query(
+      `INSERT INTO runtime_cache (cache_key, cache_value, updated_at)
+       VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (cache_key)
+       DO UPDATE SET cache_value = EXCLUDED.cache_value, updated_at = now()`,
+      [cacheKey, JSON.stringify(value)]
+    );
+  } catch {
+    return;
+  }
 }
 
 function toNumber(value, fallback = 0) {
@@ -842,6 +857,45 @@ async function getCachedFailedTransactionsToday() {
   return fresh;
 }
 
+async function refreshRolling24hTransactionState(totalTransactions, fallbackCount = 0) {
+  const cacheKey = "citrea:transactions:rolling-24h";
+  const currentTotal = toNumber(totalTransactions);
+  const nowIso = new Date().toISOString();
+  const cutoffMs = Date.now() - (24 * 60 * 60 * 1000);
+  const fallbackBaseline = Math.max(currentTotal - toNumber(fallbackCount), 0);
+
+  const cached = await getRuntimeCache(cacheKey);
+  const snapshots = Array.isArray(cached?.value?.snapshots) ? cached.value.snapshots : [];
+  const freshSnapshots = snapshots
+    .filter((item) => item && item.captured_at && Number.isFinite(Date.parse(item.captured_at)))
+    .filter((item) => Date.parse(item.captured_at) >= cutoffMs - (60 * 60 * 1000));
+
+  freshSnapshots.push({
+    captured_at: nowIso,
+    total_transactions: currentTotal
+  });
+
+  let baseline = freshSnapshots.find((item) => Date.parse(item.captured_at) <= cutoffMs);
+  if (!baseline) {
+    baseline = {
+      captured_at: new Date(cutoffMs).toISOString(),
+      total_transactions: fallbackBaseline
+    };
+  }
+
+  const payload = {
+    snapshots: freshSnapshots.slice(-400),
+    baseline
+  };
+  await setRuntimeCache(cacheKey, payload);
+
+  return {
+    count: Math.max(currentTotal - toNumber(baseline.total_transactions), 0),
+    cutoff_iso: baseline.captured_at,
+    counted_at: nowIso
+  };
+}
+
 async function fetchTodayExplorerGasSpendExact() {
   const startMs = Date.parse(utcDayStartIso());
   let nextPageParams = null;
@@ -1029,11 +1083,23 @@ export async function getNetworkSummary() {
     }))
   ]);
 
-  const liveTodayTransactions = explorer.error
+  const rolling24hTransactions = explorer.error
+    ? { error: explorer.error, count: 0, cutoff_iso: null, counted_at: null }
+    : await refreshRolling24hTransactionState(
+        explorer.total_transactions || 0,
+        explorer.transactions_today || 0
+      ).catch((error) => ({
+        error: `transactions-24h:${error.message}`,
+        count: toNumber(explorer.transactions_today),
+        cutoff_iso: null,
+        counted_at: null
+      }));
+
+  const liveTodayTransactions = rolling24hTransactions.error
     ? { count: 0, date: null, exact: false }
     : {
-        count: explorer.transactions_today || 0,
-        date: null,
+        count: rolling24hTransactions.count || 0,
+        date: rolling24hTransactions.cutoff_iso || null,
         exact: true
       };
 
@@ -1045,6 +1111,7 @@ export async function getNetworkSummary() {
     indexed.error,
     publicInterest.error,
     failedToday.error,
+    rolling24hTransactions.error,
     ...(Array.isArray(gasLive.errors) ? gasLive.errors : [])
   ].filter(Boolean);
 
