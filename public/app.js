@@ -161,6 +161,11 @@ function renderKpis(summary) {
     ? summary.balances.top_tokens.map((item) => item.token).filter(Boolean).slice(0, 3)
     : [];
   const balanceMeta = balanceTokens.length ? balanceTokens.join(", ") : "No live token balances";
+  const cbtcAmount = Number(summary.balances?.cbtc_amount || 0);
+  const cbtcMeta =
+    cbtcAmount > 0
+      ? `USD: ${money(summary.balances?.cbtc_usd)} - native fee token only`
+      : "No native cBTC currently held";
 
   const cards = [
     { label: "Bridge Tx Count", value: summary.bridge.tx_count },
@@ -168,7 +173,7 @@ function renderKpis(summary) {
     {
       label: "Available cBTC",
       value: summary.balances?.cbtc_amount,
-      meta: `USD: ${money(summary.balances?.cbtc_usd)} - native fee token only`,
+      meta: cbtcMeta,
       formatter: number
     },
     { label: "Available Token Balance (USDT)", value: summary.balances?.total_usd, meta: `Tokens: ${balanceMeta}` },
