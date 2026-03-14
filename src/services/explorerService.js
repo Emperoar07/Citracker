@@ -943,12 +943,25 @@ export async function getCitreaWalletTokenBalances(wallet) {
     };
   }
 
-  const rows = await fetchAddressTokenBalances(env.citreascanApiUrl, wallet);
+  const [rows, addressSummary] = await Promise.all([
+    fetchAddressTokenBalances(env.citreascanApiUrl, wallet),
+    getAddressMetadata(env.citreascanApiUrl, wallet)
+  ]);
   const nowIso = new Date().toISOString();
   const balances = [];
   let totalUsd = 0;
   let cbtcAmount = 0;
   let cbtcUsd = 0;
+
+  const nativeCoinBalance = String(addressSummary?.coin_balance || "0");
+  if (nativeCoinBalance && nativeCoinBalance !== "0") {
+    const nativePrice =
+      await resolveNativeUsdPrice(env.citreaChainId, nowIso).catch(() => null) ||
+      await resolveTokenUsdPriceSpot("cBTC").catch(() => null);
+    cbtcAmount = Number(ethers.formatEther(nativeCoinBalance));
+    cbtcUsd = nativePrice ? cbtcAmount * Number(nativePrice.price || 0) : 0;
+    totalUsd += Number.isFinite(cbtcUsd) ? cbtcUsd : 0;
+  }
 
   for (const row of rows) {
     const token = row?.token || {};
@@ -975,11 +988,6 @@ export async function getCitreaWalletTokenBalances(wallet) {
 
     const usd = spotPrice ? amount * Number(spotPrice.price || 0) : 0;
     totalUsd += Number.isFinite(usd) ? usd : 0;
-
-    if (String(symbol).trim().toUpperCase() === "CBTC") {
-      cbtcAmount += amount;
-      cbtcUsd += Number.isFinite(usd) ? usd : 0;
-    }
 
     balances.push({
       token: symbol,
