@@ -31,6 +31,13 @@ function formatRefreshInterval(ms) {
   return `Refreshes every ${minutes}m`;
 }
 
+function timeLabel(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString();
+}
+
 function friendlyErrorMessage(message, fallback) {
   if (!message) return fallback;
   if (message.includes("DATABASE_URL is required")) {
@@ -249,9 +256,11 @@ function renderNetworkSummary(payload) {
   const metrics = payload.citrea;
   const dex24hSource =
     metrics.dex_volume_24h_source === "indexed_live" ? "Citracker" : "DefiLlama";
+  const sourceSyncLabel = timeLabel(payload.updated_at);
+  const defillamaMeta = sourceSyncLabel ? `Last source sync ${sourceSyncLabel}` : null;
   const cards = [
-    { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama" },
-    { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama" },
+    { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama", meta: defillamaMeta },
+    { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama", meta: defillamaMeta },
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
     { label: "Total Chain Transactions", value: metrics.total_transactions, source: "Explorer" },
     {
@@ -260,7 +269,12 @@ function renderNetworkSummary(payload) {
       source: "Explorer",
       meta: "Explorer 24h snapshot"
     },
-    { label: "Citrea DEX Volume 24h (USD)", value: metrics.dex_volume_24h_usd, source: dex24hSource }
+    {
+      label: "Citrea DEX Volume 24h (USD)",
+      value: metrics.dex_volume_24h_usd,
+      source: dex24hSource,
+      meta: dex24hSource === "DefiLlama" ? defillamaMeta : null
+    }
   ];
 
   networkKpisEl.innerHTML = cards
