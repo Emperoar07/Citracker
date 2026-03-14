@@ -857,43 +857,74 @@ async function getCachedFailedTransactionsToday() {
   return fresh;
 }
 
-async function refreshRolling24hTransactionState(totalTransactions, fallbackCount = 0) {
-  const cacheKey = "citrea:transactions:rolling-24h";
-  const currentTotal = toNumber(totalTransactions);
-  const nowIso = new Date().toISOString();
-  const cutoffMs = Date.now() - (24 * 60 * 60 * 1000);
-  const fallbackBaseline = Math.max(currentTotal - toNumber(fallbackCount), 0);
+async function fetchExplorerTransactionsSince(startIso) {
+  const startMs = Date.parse(startIso);
+  let nextPageParams = null;
+  let count = 0;
+  const maxPages = 80;
 
-  const cached = await getRuntimeCache(cacheKey);
-  const snapshots = Array.isArray(cached?.value?.snapshots) ? cached.value.snapshots : [];
-  const freshSnapshots = snapshots
-    .filter((item) => item && item.captured_at && Number.isFinite(Date.parse(item.captured_at)))
-    .filter((item) => Date.parse(item.captured_at) >= cutoffMs - (60 * 60 * 1000));
+  for (let page = 0; page < maxPages; page += 1) {
+    const url = new URL(`${env.citreascanApiUrl.replace(/\/$/, "")}/transactions`);
+    if (nextPageParams && typeof nextPageParams === "object") {
+      Object.entries(nextPageParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+          url.searchParams.set(key, String(value));
+        }
+      });
+    }
 
-  freshSnapshots.push({
-    captured_at: nowIso,
-    total_transactions: currentTotal
-  });
+    const data = await fetchJson(url.toString());
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (!items.length) break;
 
-  let baseline = freshSnapshots.find((item) => Date.parse(item.captured_at) <= cutoffMs);
-  if (!baseline) {
-    baseline = {
-      captured_at: new Date(cutoffMs).toISOString(),
-      total_transactions: fallbackBaseline
-    };
+    let reachedOlderItems = false;
+    for (const tx of items) {
+      const txTimestampMs = new Date(tx?.timestamp || 0).getTime();
+      if (!Number.isFinite(txTimestampMs)) {
+        continue;
+      }
+      if (txTimestampMs < startMs) {
+        reachedOlderItems = true;
+        break;
+      }
+      count += 1;
+    }
+
+    if (reachedOlderItems || !data?.next_page_params) {
+      break;
+    }
+    nextPageParams = data.next_page_params;
   }
 
-  const payload = {
-    snapshots: freshSnapshots.slice(-400),
-    baseline
-  };
-  await setRuntimeCache(cacheKey, payload);
-
   return {
-    count: Math.max(currentTotal - toNumber(baseline.total_transactions), 0),
-    cutoff_iso: baseline.captured_at,
-    counted_at: nowIso
+    count,
+    start_iso: startIso,
+    counted_at: new Date().toISOString()
   };
+}
+
+async function getCachedExplorerTransactionsSince(startIso) {
+  const cacheKey = `citrea:transactions-since:${startIso}`;
+
+  try {
+    const cached = await getRuntimeCache(cacheKey);
+    if (cached?.value && cached.updated_at) {
+      const ageMs = Date.now() - new Date(cached.updated_at).getTime();
+      if (Number.isFinite(ageMs) && ageMs < env.networkRefreshMs) {
+        return cached.value;
+      }
+    }
+  } catch {
+    return fetchExplorerTransactionsSince(startIso);
+  }
+
+  const fresh = await fetchExplorerTransactionsSince(startIso);
+  try {
+    await setRuntimeCache(cacheKey, fresh);
+  } catch {
+    return fresh;
+  }
+  return fresh;
 }
 
 async function fetchTodayExplorerGasSpendExact() {
@@ -1083,23 +1114,27 @@ export async function getNetworkSummary() {
     }))
   ]);
 
-  const rolling24hTransactions = explorer.error
-    ? { error: explorer.error, count: 0, cutoff_iso: null, counted_at: null }
-    : await refreshRolling24hTransactionState(
-        explorer.total_transactions || 0,
-        explorer.transactions_today || 0
-      ).catch((error) => ({
-        error: `transactions-24h:${error.message}`,
-        count: toNumber(explorer.transactions_today),
-        cutoff_iso: null,
+  const exactTodayTransactions = explorer.error
+    ? { error: explorer.error, count: 0, start_iso: null, counted_at: null }
+    : await getCachedExplorerTransactionsSince(utcDayStartIso()).catch((error) => ({
+        error: `transactions-today:${error.message}`,
+        count: 0,
+        start_iso: utcDayStartIso(),
         counted_at: null
       }));
 
-  const liveTodayTransactions = rolling24hTransactions.error
-    ? { count: 0, date: null, exact: false }
+  const latestDailyDate = explorer.latest_daily_transactions_date || null;
+  const latestDailyCount = toNumber(explorer.latest_daily_transactions || explorer.transactions_today || 0);
+  const explorerStyle24hCount =
+    latestDailyDate && latestDailyDate !== utcDateString()
+      ? latestDailyCount + toNumber(exactTodayTransactions.count)
+      : Math.max(latestDailyCount, toNumber(exactTodayTransactions.count));
+
+  const liveTodayTransactions = exactTodayTransactions.error
+    ? { count: toNumber(explorer.transactions_today), date: null, exact: false }
     : {
-        count: rolling24hTransactions.count || 0,
-        date: rolling24hTransactions.cutoff_iso || null,
+        count: explorerStyle24hCount,
+        date: exactTodayTransactions.start_iso || null,
         exact: true
       };
 
@@ -1111,7 +1146,7 @@ export async function getNetworkSummary() {
     indexed.error,
     publicInterest.error,
     failedToday.error,
-    rolling24hTransactions.error,
+    exactTodayTransactions.error,
     ...(Array.isArray(gasLive.errors) ? gasLive.errors : [])
   ].filter(Boolean);
 
