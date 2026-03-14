@@ -264,10 +264,10 @@ function renderNetworkSummary(payload) {
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
     { label: "Total Chain Transactions", value: metrics.total_transactions, source: "Explorer" },
     {
-      label: "Chain Transactions (24h)",
+      label: "Chain Transactions Today",
       value: metrics.transactions_today,
       source: "Explorer",
-      meta: "Explorer 24h snapshot"
+      meta: "UTC reset 00:00 | Explorer live tx feed"
     },
     {
       label: "Citrea DEX Volume 24h (USD)",
@@ -295,8 +295,11 @@ function renderNetworkSummary(payload) {
     ["DEX Volume All Time (USD)", "DefiLlama", metrics.dex_volume_all_time_usd]
   ]
     .map(([label, source, value]) => `
-      <div class="metric-row">
-        <span class="metric-label">${label} <span class="metric-source-tag">${source}</span></span>
+      <div class="metric-row metric-row-stack">
+        <div>
+          <div class="metric-label">${label} <span class="metric-source-tag">${source}</span></div>
+          ${defillamaMeta ? `<div class="metric-label">${defillamaMeta}</div>` : ""}
+        </div>
         <span class="metric-value">${typeof value === "string" ? value : money(value)}</span>
       </div>`)
     .join("");

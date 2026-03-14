@@ -1044,19 +1044,12 @@ export async function getNetworkSummary() {
     }))
   ]);
 
-  const latestDailyDate = explorer.latest_daily_transactions_date || null;
-  const latestDailyCount = toNumber(explorer.latest_daily_transactions);
-  const explorerSnapshot24hCount = Math.max(
-    toNumber(explorer.transactions_today),
-    latestDailyDate === utcDateString() ? latestDailyCount : 0
-  );
-
   const liveTodayTransactions = explorer.error
     ? { count: 0, date: null, exact: false }
     : {
-        count: explorerSnapshot24hCount,
-        date: latestDailyDate,
-        exact: false
+        count: Number(gasLive.gas?.gas_spent_today_tx_count || 0),
+        date: utcDateString(),
+        exact: true
       };
 
   const errors = [
