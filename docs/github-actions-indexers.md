@@ -101,6 +101,11 @@ node scripts/indexerHealthCheck.js --stream=dex --markdown
 
 The health script can enforce thresholds and exit non-zero.
 
+Threshold behavior:
+
+- cursor freshness/count, price snapshot presence, and fee price coverage are hard-fail checks
+- bridge and dex price coverage are advisory warnings because the app also applies runtime price fallback logic
+
 Default thresholds:
 
 - `HEALTH_BRIDGE_MAX_CURSOR_STALENESS_MINUTES=120`

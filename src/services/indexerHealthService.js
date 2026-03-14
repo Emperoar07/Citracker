@@ -141,28 +141,37 @@ async function getFeeStats(pool, dayStart) {
   };
 }
 
-async function getPriceStats(pool) {
+async function getPriceStats(pool, dayStart) {
   const [bridge, dex, fees, snapshots] = await Promise.all([
     queryValue(
       pool,
       `SELECT
          COUNT(*)::int AS total_rows,
-         COUNT(*) FILTER (WHERE amount_usd IS NOT NULL)::int AS priced_rows
-       FROM bridge_transfers`
+         COUNT(*) FILTER (WHERE amount_usd IS NOT NULL)::int AS priced_rows,
+         COUNT(*) FILTER (WHERE block_timestamp >= $1)::int AS today_rows,
+         COUNT(*) FILTER (WHERE block_timestamp >= $1 AND amount_usd IS NOT NULL)::int AS today_priced_rows
+       FROM bridge_transfers`,
+      [dayStart.toISOString()]
     ),
     queryValue(
       pool,
       `SELECT
          COUNT(*)::int AS total_rows,
-         COUNT(*) FILTER (WHERE swap_volume_usd IS NOT NULL)::int AS priced_rows
-       FROM dex_swaps`
+         COUNT(*) FILTER (WHERE swap_volume_usd IS NOT NULL)::int AS priced_rows,
+         COUNT(*) FILTER (WHERE block_timestamp >= $1)::int AS today_rows,
+         COUNT(*) FILTER (WHERE block_timestamp >= $1 AND swap_volume_usd IS NOT NULL)::int AS today_priced_rows
+       FROM dex_swaps`,
+      [dayStart.toISOString()]
     ),
     queryValue(
       pool,
       `SELECT
          COUNT(*)::int AS total_rows,
-         COUNT(*) FILTER (WHERE fee_usd IS NOT NULL)::int AS priced_rows
-       FROM tx_fees`
+         COUNT(*) FILTER (WHERE fee_usd IS NOT NULL)::int AS priced_rows,
+         COUNT(*) FILTER (WHERE block_timestamp >= $1)::int AS today_rows,
+         COUNT(*) FILTER (WHERE block_timestamp >= $1 AND fee_usd IS NOT NULL)::int AS today_priced_rows
+       FROM tx_fees`,
+      [dayStart.toISOString()]
     ),
     queryValue(
       pool,
@@ -175,13 +184,36 @@ async function getPriceStats(pool) {
     bridgePricedRows: Number(bridge.priced_rows || 0),
     bridgeTotalRows: Number(bridge.total_rows || 0),
     bridgeCoverage: percentage(Number(bridge.priced_rows || 0), Number(bridge.total_rows || 0)),
+    bridgeTodayRows: Number(bridge.today_rows || 0),
+    bridgeTodayPricedRows: Number(bridge.today_priced_rows || 0),
+    bridgeTodayCoverage: percentage(Number(bridge.today_priced_rows || 0), Number(bridge.today_rows || 0)),
     dexPricedRows: Number(dex.priced_rows || 0),
     dexTotalRows: Number(dex.total_rows || 0),
     dexCoverage: percentage(Number(dex.priced_rows || 0), Number(dex.total_rows || 0)),
+    dexTodayRows: Number(dex.today_rows || 0),
+    dexTodayPricedRows: Number(dex.today_priced_rows || 0),
+    dexTodayCoverage: percentage(Number(dex.today_priced_rows || 0), Number(dex.today_rows || 0)),
     feePricedRows: Number(fees.priced_rows || 0),
     feeTotalRows: Number(fees.total_rows || 0),
     feeCoverage: percentage(Number(fees.priced_rows || 0), Number(fees.total_rows || 0)),
+    feeTodayRows: Number(fees.today_rows || 0),
+    feeTodayPricedRows: Number(fees.today_priced_rows || 0),
+    feeTodayCoverage: percentage(Number(fees.today_priced_rows || 0), Number(fees.today_rows || 0)),
     snapshotRows: Number(snapshots.snapshot_rows || 0)
+  };
+}
+
+function coverageForThreshold(totalCoverage, todayCoverage, todayRows) {
+  if (Number(todayRows || 0) > 0 && todayCoverage !== null) {
+    return {
+      scope: "today",
+      coverage: todayCoverage
+    };
+  }
+
+  return {
+    scope: "all-time",
+    coverage: totalCoverage
   };
 }
 
@@ -200,6 +232,7 @@ export function buildHealthThresholds() {
 
 export function evaluateHealthThresholds(sections, thresholds) {
   const failures = [];
+  const warnings = [];
 
   if (sections.bridge) {
     const stale = ageMinutes(sections.bridge.lastCursorUpdate);
@@ -224,27 +257,43 @@ export function evaluateHealthThresholds(sections, thresholds) {
   }
 
   if (sections.prices) {
+    const bridgeCoverage = coverageForThreshold(
+      sections.prices.bridgeCoverage,
+      sections.prices.bridgeTodayCoverage,
+      sections.prices.bridgeTodayRows
+    );
+    const dexCoverage = coverageForThreshold(
+      sections.prices.dexCoverage,
+      sections.prices.dexTodayCoverage,
+      sections.prices.dexTodayRows
+    );
+    const feeCoverage = coverageForThreshold(
+      sections.prices.feeCoverage,
+      sections.prices.feeTodayCoverage,
+      sections.prices.feeTodayRows
+    );
+
     if (sections.prices.snapshotRows < thresholds.minPriceSnapshots) {
       failures.push(`price snapshot rows ${sections.prices.snapshotRows} are below minimum ${thresholds.minPriceSnapshots}`);
     }
-    if (sections.prices.bridgeCoverage !== null && sections.prices.bridgeCoverage < thresholds.minBridgePriceCoverage) {
-      failures.push(
-        `bridge price coverage ${(sections.prices.bridgeCoverage * 100).toFixed(2)}% is below minimum ${(thresholds.minBridgePriceCoverage * 100).toFixed(2)}%`
+    if (bridgeCoverage.coverage !== null && bridgeCoverage.coverage < thresholds.minBridgePriceCoverage) {
+      warnings.push(
+        `bridge ${bridgeCoverage.scope} price coverage ${(bridgeCoverage.coverage * 100).toFixed(2)}% is below minimum ${(thresholds.minBridgePriceCoverage * 100).toFixed(2)}%`
       );
     }
-    if (sections.prices.dexCoverage !== null && sections.prices.dexCoverage < thresholds.minDexPriceCoverage) {
-      failures.push(
-        `dex price coverage ${(sections.prices.dexCoverage * 100).toFixed(2)}% is below minimum ${(thresholds.minDexPriceCoverage * 100).toFixed(2)}%`
+    if (dexCoverage.coverage !== null && dexCoverage.coverage < thresholds.minDexPriceCoverage) {
+      warnings.push(
+        `dex ${dexCoverage.scope} price coverage ${(dexCoverage.coverage * 100).toFixed(2)}% is below minimum ${(thresholds.minDexPriceCoverage * 100).toFixed(2)}%`
       );
     }
-    if (sections.prices.feeCoverage !== null && sections.prices.feeCoverage < thresholds.minFeePriceCoverage) {
+    if (feeCoverage.coverage !== null && feeCoverage.coverage < thresholds.minFeePriceCoverage) {
       failures.push(
-        `fee price coverage ${(sections.prices.feeCoverage * 100).toFixed(2)}% is below minimum ${(thresholds.minFeePriceCoverage * 100).toFixed(2)}%`
+        `fee ${feeCoverage.scope} price coverage ${(feeCoverage.coverage * 100).toFixed(2)}% is below minimum ${(thresholds.minFeePriceCoverage * 100).toFixed(2)}%`
       );
     }
   }
 
-  return failures;
+  return { failures, warnings };
 }
 
 export function toHealthMarkdownSection(title, stats) {
@@ -270,11 +319,11 @@ export async function getIndexerHealth({ stream = "all", enforceThresholds = fal
     sections.fees = await getFeeStats(pool, dayStart);
   }
   if (stream === "all" || stream === "prices") {
-    sections.prices = await getPriceStats(pool);
+    sections.prices = await getPriceStats(pool, dayStart);
   }
 
   const thresholds = buildHealthThresholds();
-  const failures = enforceThresholds ? evaluateHealthThresholds(sections, thresholds) : [];
+  const evaluation = enforceThresholds ? evaluateHealthThresholds(sections, thresholds) : { failures: [], warnings: [] };
 
   return {
     checked_at: new Date().toISOString(),
@@ -282,9 +331,10 @@ export async function getIndexerHealth({ stream = "all", enforceThresholds = fal
     ...(enforceThresholds
       ? {
           health: {
-            status: failures.length ? "fail" : "pass",
+            status: evaluation.failures.length ? "fail" : "pass",
             thresholds,
-            failures
+            failures: evaluation.failures,
+            warnings: evaluation.warnings
           }
         }
       : {})

@@ -34,7 +34,8 @@ async function main() {
       ? [
           "### health",
           `- status: ${payload.health.status}`,
-          ...payload.health.failures.map((failure) => `- failure: ${failure}`)
+          ...payload.health.failures.map((failure) => `- failure: ${failure}`),
+          ...((payload.health.warnings || []).map((warning) => `- warning: ${warning}`))
         ].join("\n")
       : "";
     console.log([sectionsMarkdown, thresholdSection].filter(Boolean).join("\n\n"));
