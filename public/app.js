@@ -79,6 +79,15 @@ function money(value) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function compactMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "$0";
+  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })}B`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toLocaleString(undefined, { maximumFractionDigits: 2 })}K`;
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
 function number(value, digits = 6) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0";
@@ -259,8 +268,8 @@ function renderNetworkSummary(payload) {
   const sourceSyncLabel = timeLabel(payload.updated_at);
   const defillamaMeta = sourceSyncLabel ? `Last source sync ${sourceSyncLabel}` : null;
   const cards = [
-    { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama", meta: defillamaMeta },
-    { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama", meta: defillamaMeta },
+    { label: "Citrea TVL (USD)", value: metrics.chain_tvl_usd, source: "DefiLlama", meta: defillamaMeta, formatter: compactMoney },
+    { label: "Bridge TVL on Citrea (USD)", value: metrics.bridge_total_usd, source: "DefiLlama", meta: defillamaMeta, formatter: compactMoney },
     { label: "Total Addresses", value: metrics.total_users, source: "Explorer" },
     { label: "Total Chain Transactions", value: metrics.total_transactions, source: "Explorer" },
     {
@@ -273,7 +282,8 @@ function renderNetworkSummary(payload) {
       label: "Citrea DEX Volume 24h (USD)",
       value: metrics.dex_volume_24h_usd,
       source: dex24hSource,
-      meta: dex24hSource === "DefiLlama" ? defillamaMeta : null
+      meta: dex24hSource === "DefiLlama" ? defillamaMeta : null,
+      formatter: compactMoney
     }
   ];
 
@@ -284,7 +294,7 @@ function renderNetworkSummary(payload) {
           ${card.label}
           <span class="metric-source-tag metric-source-tag-inline">${card.source}</span>
         </div>
-        <div class="value">${money(card.value)}</div>
+        <div class="value">${(card.formatter || money)(card.value)}</div>
         ${card.meta ? `<div class="meta">${card.meta}</div>` : ""}
       </div>`)
     .join("");
@@ -300,7 +310,7 @@ function renderNetworkSummary(payload) {
           <div class="metric-label">${label} <span class="metric-source-tag">${source}</span></div>
           ${defillamaMeta ? `<div class="metric-label">${defillamaMeta}</div>` : ""}
         </div>
-        <span class="metric-value">${typeof value === "string" ? value : money(value)}</span>
+        <span class="metric-value">${typeof value === "string" ? value : compactMoney(value)}</span>
       </div>`)
     .join("");
 
