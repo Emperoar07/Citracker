@@ -183,20 +183,20 @@ function renderKpis(summary) {
   const cbtcAmount = Number(summary.balances?.cbtc_amount || 0);
   const cbtcMeta =
     cbtcAmount > 0
-      ? `USD: ${money(summary.balances?.cbtc_usd)} - native fee token only | Source: Citrea explorer coin balance`
-      : "No native cBTC currently held | Source: Citrea explorer coin balance";
+      ? `$${money(summary.balances?.cbtc_usd)} USD - native fee token only | Citrea explorer coin balance`
+      : "No native cBTC currently held | Citrea explorer coin balance";
 
   const cards = [
     { label: "Bridge Tx Count", value: summary.bridge.tx_count },
-    { label: "Bridge Total (USDT)", value: summary.bridge.volume_usd },
+    { label: "Bridge Total (USD)", value: summary.bridge.volume_usd },
     {
       label: "Available cBTC",
       value: summary.balances?.cbtc_amount,
       meta: cbtcMeta,
       formatter: number
     },
-    { label: "Available Token Balance (USDT)", value: summary.balances?.total_usd, meta: `Tokens: ${balanceMeta}` },
-    { label: "Total Wallet Volume (USDT)", value: summary.total_activity_volume_usd },
+    { label: "Available Token Balance (USD)", value: summary.balances?.total_usd, meta: balanceMeta },
+    { label: "Total Wallet Volume (USD)", value: summary.total_activity_volume_usd },
     { label: "DEX Swap Count", value: summary.dex.swap_count },
     { label: "Citrea Tx Count", value: summary.citrea_total_tx_count }
   ];
@@ -219,7 +219,7 @@ function renderKpis(summary) {
         <div class="metric-value metric-value-left">${item.token}</div>
         <div class="metric-label">${number(item.amount)} available</div>
       </div>
-      <span class="metric-value">${money(item.usd)} USDT</span>
+      <span class="metric-value">$${money(item.usd)}</span>
     </div>`);
 
   renderMetricList(walletTopAppsEl, summary.usage?.top_apps || [], (item) => `
