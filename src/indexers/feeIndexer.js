@@ -3,7 +3,7 @@ import { env } from "../config.js";
 import { getPool } from "../db.js";
 
 async function fetchJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(env.externalFetchTimeoutMs) });
   if (!res.ok) {
     throw new Error(`Explorer HTTP ${res.status}`);
   }
@@ -111,16 +111,18 @@ async function run() {
        ON dst_fee.chain_id = bt.destination_chain_id
       AND dst_fee.tx_hash = bt.destination_tx_hash
       AND dst_fee.wallet_address = bt.wallet_address
-     WHERE src_fee.id IS NULL
-        OR COALESCE(src_fee.effective_gas_price_wei, 0) = 0
-        OR (
-          bt.destination_tx_hash IS NOT NULL
-          AND bt.destination_chain_id IN ($1, $2)
-          AND (
-            dst_fee.id IS NULL
-            OR COALESCE(dst_fee.effective_gas_price_wei, 0) = 0
-          )
-        )
+     WHERE (
+         src_fee.id IS NULL
+         OR COALESCE(src_fee.effective_gas_price_wei, 0) = 0
+         OR (
+           bt.destination_tx_hash IS NOT NULL
+           AND bt.destination_chain_id IN ($1, $2)
+           AND (
+             dst_fee.id IS NULL
+             OR COALESCE(dst_fee.effective_gas_price_wei, 0) = 0
+           )
+         )
+       )
        AND bt.block_timestamp >= $3
      ORDER BY bt.block_timestamp DESC, bt.source_chain_id, bt.source_tx_hash
      LIMIT $4`,

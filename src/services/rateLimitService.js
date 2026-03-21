@@ -64,7 +64,9 @@ async function consumeSharedWindow(clientKey, now = Date.now()) {
       `DELETE FROM api_rate_limits
        WHERE window_start < now() - make_interval(secs => $1::int)`,
       [Math.max(Math.ceil((env.rateLimitWindowMs * 10) / 1000), 60)]
-    ).catch(() => {});
+    ).catch((err) => {
+      console.warn("rateLimitService cleanup failed:", err.message);
+    });
   }
 
   return {

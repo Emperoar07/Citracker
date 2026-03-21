@@ -133,10 +133,10 @@ function renderMetricList(container, rows, formatter) {
 function walletUsageMeta(item) {
   const category = String(item?.category || "").toLowerCase();
   const volume = money(item?.volume_usd);
-  if (category === "bridge") return `bridge | ${volume} USDT bridged`;
-  if (category === "dex") return `dex | ${volume} USDT swapped`;
-  if (category === "lending" || category === "yield") return `${category} | ${volume} USDT supplied`;
-  return `${category || "activity"} | ${volume} USDT activity`;
+  if (category === "bridge") return `bridge | $${volume} bridged`;
+  if (category === "dex") return `dex | $${volume} swapped`;
+  if (category === "lending" || category === "yield") return `${category} | $${volume} supplied`;
+  return `${category || "activity"} | $${volume} activity`;
 }
 
 function setStatus(text, isError = false) {

@@ -15,7 +15,10 @@ async function processBridgeRows(rows, pool) {
   let updated = 0;
   for (const row of rows) {
     const priced = await resolveTokenUsdPrice(row.symbol, row.block_timestamp);
-    if (!priced) continue;
+    if (!priced) {
+      console.warn(`priceIndexer bridge: no price for ${row.symbol} at ${row.block_timestamp} (id=${row.id})`);
+      continue;
+    }
 
     const amountUsd = Number(row.amount_decimal) * priced.price;
     await pool.query(
@@ -83,6 +86,7 @@ async function processDexRows(rows, pool) {
     const swapVolumeUsd = tokenInUsd ?? tokenOutUsd;
 
     if (tokenInUsd === null && tokenOutUsd === null && swapVolumeUsd === null) {
+      console.warn(`priceIndexer dex: no price for ${row.token_in_symbol}/${row.token_out_symbol} at ${row.block_timestamp} (id=${row.id})`);
       continue;
     }
 
@@ -173,7 +177,10 @@ async function processFeeRows(rows, pool) {
   let updated = 0;
   for (const row of rows) {
     const priced = await resolveNativeUsdPrice(row.chain_id, row.block_timestamp);
-    if (!priced) continue;
+    if (!priced) {
+      console.warn(`priceIndexer fee: no native price for chain ${row.chain_id} at ${row.block_timestamp} (id=${row.id})`);
+      continue;
+    }
 
     const feeUsd = Number(row.fee_native) * priced.price;
     await pool.query(
