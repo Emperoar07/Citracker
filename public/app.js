@@ -394,7 +394,7 @@ function renderGasSummary(payload) {
     ["Average", `${number(gas.gas_prices?.average, 4)} gwei`],
     ["Fast", `${number(gas.gas_prices?.fast, 4)} gwei`],
     ["1 Gwei (USD/gas)", `$${number(gas.usd_per_gwei, 8)}`],
-    ["Gas Spent Today (USD)", money(gas.gas_spent_today_usd)]
+    ["Gas Spent Today (USD)", `$${money(gas.gas_spent_today_usd)}`]
   ]
     .map(([label, value]) => `
       <div class="gas-stat">
