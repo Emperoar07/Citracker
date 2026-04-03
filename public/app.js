@@ -146,7 +146,7 @@ function renderKpis(summary) {
   bridgeSourceInfoEl.textContent = "";
   bridgeSourceInfoEl.style.display = "none";
 
-  renderMetricList(walletBalancesEl, summary.balances?.all_tokens || [], (item) => `
+  renderMetricList(walletBalancesEl, (summary.balances?.all_tokens || []).filter((item) => Number(item.amount || 0) > 0), (item) => `
     <div class="metric-row metric-row-stack">
       <div>
         <div class="metric-value metric-value-left">${item.token}</div>
