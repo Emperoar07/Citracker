@@ -67,21 +67,31 @@
         </details>
 
         <section class="wallet-apps-grid">
-          <section class="card wallet-apps-card">
-            <div class="section-head">
-              <h3>Top Apps All-Time</h3>
-              <span class="subtle">Top 3 apps across all wallet activity</span>
+          <details class="card card-dropdown wallet-apps-card">
+            <summary class="card-dropdown-summary">
+              <div class="section-head">
+                <h3>Top Apps All-Time</h3>
+                <span class="subtle">Top 3 apps across all wallet activity</span>
+              </div>
+              <span class="card-dropdown-icon" aria-hidden="true"></span>
+            </summary>
+            <div class="card-dropdown-content">
+              <div class="metric-list" id="walletTopApps"></div>
             </div>
-            <div class="metric-list" id="walletTopApps"></div>
-          </section>
+          </details>
 
-          <section class="card wallet-apps-card">
-            <div class="section-head">
-              <h3>Top Apps 24h</h3>
-              <span class="subtle">Top 3 apps in the last 24 hours</span>
+          <details class="card card-dropdown wallet-apps-card">
+            <summary class="card-dropdown-summary">
+              <div class="section-head">
+                <h3>Top Apps 24h</h3>
+                <span class="subtle">Top 3 apps in the last 24 hours</span>
+              </div>
+              <span class="card-dropdown-icon" aria-hidden="true"></span>
+            </summary>
+            <div class="card-dropdown-content">
+              <div class="metric-list" id="walletTopApps24h"></div>
             </div>
-            <div class="metric-list" id="walletTopApps24h"></div>
-          </section>
+          </details>
         </section>
       </section>
 
