@@ -5,17 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
-    "start": "node src/server.js",
-    "db:bootstrap": "node scripts/bootstrapLiveDb.js",
-    "sync:citrea-apps": "node scripts/syncCitreaAppRegistry.js",
-    "seed:sample": "node scripts/seedSampleData.js",
-    "health:indexers": "node scripts/indexerHealthCheck.js --stream=all",
-    "health:indexers:strict": "node scripts/indexerHealthCheck.js --stream=all --enforce-thresholds",
-    "indexer:bridge": "node src/indexers/bridgeIndexer.js",
-    "indexer:dex": "node src/indexers/dexIndexer.js",
-    "indexer:fees": "node src/indexers/feeIndexer.js",
-    "indexer:prices": "node src/indexers/priceIndexer.js",
-    "probe:nansen": "node scripts/probeNansenCitrea.js"
+    "start": "node src/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

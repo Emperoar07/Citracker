@@ -27,164 +27,62 @@
               <line x1="84" y1="80" x2="106" y2="64" stroke="#93CD3F" stroke-width="3" stroke-linecap="round"></line>
               <circle cx="106" cy="64" r="4" fill="#93CD3F"></circle>
               <text x="155" y="88" fill="#F5EEE2" font-size="72" font-weight="800" font-family="'Space Grotesk', 'IBM Plex Sans', sans-serif">Citracker</text>
-              <text x="155" y="120" fill="#D8FF26" font-size="20" font-weight="700" letter-spacing="3" font-family="'IBM Plex Sans', sans-serif">CITREA MAINNET INTELLIGENCE</text>
+              <text x="155" y="120" fill="#D8FF26" font-size="20" font-weight="700" letter-spacing="3" font-family="'IBM Plex Sans', sans-serif">CITREA WALLET TRACKER</text>
             </svg>
           </div>
-          <div class="hero-controls">
-            <div class="live-pill">
-              <span class="live-dot"></span>
-              <span id="networkLiveLabel">Network panel polling</span>
-            </div>
-            <div class="live-pill live-pill-health" id="indexerHealthBadge">
-              <span class="live-dot" id="indexerHealthDot"></span>
-              <span id="indexerHealthLabel">Indexer health pending</span>
-            </div>
-            <details class="source-dropdown">
-              <summary class="source-toggle" aria-label="Live sources">
-                <span class="source-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M12 3l8 4.5v9L12 21 4 16.5v-9L12 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
-                    <path d="M12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6Z" fill="none" stroke="currentColor" stroke-width="1.8"></path>
-                  </svg>
-                </span>
-                <span class="source-toggle-label">Sources</span>
-              </summary>
-              <div class="source-dropdown-panel">
-                <div class="source-dropdown-head">
-                  <h3>Sources</h3>
-                </div>
-                <div class="metric-list" id="sourceHealth"></div>
-              </div>
-            </details>
+        </div>
+      </header>
+
+      <section class="panel left-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Wallet Tracker</h2>
+            <p>Paste a wallet address to load all-time totals.</p>
           </div>
         </div>
 
-        <section class="gas-banner">
-          <div class="gas-banner-head">
-            <div>
-              <h2>Citrea Gas Live</h2>
-              <p class="subtle" id="gasLiveLabel">UTC reset 00:00 | Explorer live fee sum | Polling every 60s</p>
-            </div>
-            <span class="subtle" id="gasPriceUpdatedAt">Awaiting explorer sync</span>
-          </div>
-          <div class="gas-banner-metrics" id="gasPriceMetrics"></div>
-        </section>
-      </header>
-
-      <section class="split">
-        <section class="panel left-panel">
-          <div class="panel-head">
-            <div>
-              <h2>Wallet Tracker</h2>
-              <p>Paste a wallet address to load all-time totals.</p>
-            </div>
-          </div>
-
-          <section class="filters">
-            <label>
-              Wallet Address
-              <input id="walletInput" type="text" placeholder="0x..." />
-            </label>
-            <button id="loadBtn">Load Wallet Data</button>
-          </section>
-
-          <section id="status" class="status"></section>
-          <section id="bridgeSourceInfo" class="subtle bridge-source-info"></section>
-          <section class="kpis" id="kpis"></section>
-
-          <details class="card card-dropdown wallet-balances-card">
-            <summary class="card-dropdown-summary">
-              <div class="section-head">
-                <h3>Available Wallet Balances</h3>
-                <span class="subtle">Exact live token balances</span>
-              </div>
-              <span class="card-dropdown-icon" aria-hidden="true"></span>
-            </summary>
-            <div class="card-dropdown-content">
-              <div class="metric-list" id="walletBalances"></div>
-            </div>
-          </details>
-
-          <section class="wallet-apps-grid">
-            <section class="card wallet-apps-card">
-              <div class="section-head">
-                <h3>Top Apps All-Time</h3>
-                <span class="subtle">Top 3 apps across all wallet activity</span>
-              </div>
-              <div class="metric-list" id="walletTopApps"></div>
-            </section>
-
-            <section class="card wallet-apps-card">
-              <div class="section-head">
-                <h3>Top Apps 24h</h3>
-                <span class="subtle">Top 3 apps in the last 24 hours</span>
-              </div>
-              <div class="metric-list" id="walletTopApps24h"></div>
-            </section>
-          </section>
+        <section class="filters">
+          <label>
+            Wallet Address
+            <input id="walletInput" type="text" placeholder="0x..." />
+          </label>
+          <button id="loadBtn">Load Wallet Data</button>
         </section>
 
-        <aside class="panel right-panel">
-          <div class="panel-head">
-            <div>
-              <h2>Citrea Mainnet Live</h2>
-            </div>
-            <div class="mini-meta">
-              <span id="networkUpdatedAt">Waiting for first sync</span>
-            </div>
-          </div>
+        <section id="status" class="status"></section>
+        <section id="bridgeSourceInfo" class="subtle bridge-source-info"></section>
+        <section class="kpis" id="kpis"></section>
 
-          <section id="networkStatus" class="status"></section>
-          <section class="network-kpis" id="networkKpis"></section>
-
-          <section class="card network-stack">
+        <details class="card card-dropdown wallet-balances-card">
+          <summary class="card-dropdown-summary">
             <div class="section-head">
-              <h3>Bridge Origins</h3>
+              <h3>Available Wallet Balances</h3>
+              <span class="subtle">Exact live token balances</span>
             </div>
-            <div class="metric-list" id="bridgeOrigins"></div>
+            <span class="card-dropdown-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="card-dropdown-content">
+            <div class="metric-list" id="walletBalances"></div>
+          </div>
+        </details>
+
+        <section class="wallet-apps-grid">
+          <section class="card wallet-apps-card">
+            <div class="section-head">
+              <h3>Top Apps All-Time</h3>
+              <span class="subtle">Top 3 apps across all wallet activity</span>
+            </div>
+            <div class="metric-list" id="walletTopApps"></div>
           </section>
 
-          <section class="network-grid network-grid-tight">
-            <details class="card card-dropdown">
-              <summary class="card-dropdown-summary">
-                <div class="section-head">
-                  <h3>Today Snapshot (UTC)</h3>
-                  <span class="subtle">UTC reset 00:00 | Explorer + Citracker</span>
-                </div>
-                <span class="card-dropdown-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="card-dropdown-content">
-                <div class="metric-list" id="todaySnapshot"></div>
-              </div>
-            </details>
-
-            <details class="card card-dropdown">
-              <summary class="card-dropdown-summary">
-                <div class="section-head">
-                  <h3>Top 3 Tracked Apps by Tx Count</h3>
-                  <span class="subtle">Citracker app activity today</span>
-                </div>
-                <span class="card-dropdown-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="card-dropdown-content">
-                <div class="metric-list" id="topAppsByTx"></div>
-              </div>
-            </details>
-
-            <details class="card card-dropdown">
-              <summary class="card-dropdown-summary">
-                <div class="section-head">
-                  <h3>Top 3 Tracked Apps by Volume</h3>
-                  <span class="subtle">Citracker app volume today</span>
-                </div>
-                <span class="card-dropdown-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="card-dropdown-content">
-                <div class="metric-list" id="topAppsByVolume"></div>
-              </div>
-            </details>
+          <section class="card wallet-apps-card">
+            <div class="section-head">
+              <h3>Top Apps 24h</h3>
+              <span class="subtle">Top 3 apps in the last 24 hours</span>
+            </div>
+            <div class="metric-list" id="walletTopApps24h"></div>
           </section>
-        </aside>
+        </section>
       </section>
 
       <footer class="site-credit">
